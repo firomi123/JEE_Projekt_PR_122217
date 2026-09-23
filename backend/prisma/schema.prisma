@@ -24,7 +24,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  profile DriverProfile?
+  profile         DriverProfile?
+  documents       Document[]
+  createdVersions DocumentVersion[]
+  historyEntries  DocumentHistory[]
 
   @@map("users")
 }
@@ -44,4 +47,93 @@ model DriverProfile {
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("driver_profiles")
+}
+
+enum DocumentType {
+  CMR
+  WZ
+  INVOICE
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+  ARCHIVED
+}
+
+enum HistoryAction {
+  CREATED
+  UPDATED
+  STATUS_CHANGED
+  VERSION_ADDED
+  DELETED
+}
+
+/// A transport document (CMR, WZ, …) owned by one driver. Deleting is soft
+/// (`deletedAt`), so the encrypted files and the history are kept.
+model Document {
+  id             String            @id @default(uuid()) @db.Uuid
+  ownerId        String            @map("owner_id") @db.Uuid
+  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  type           DocumentType
+  status         DocumentStatus    @default(DRAFT)
+  title          String            @db.VarChar(200)
+  number         String?           @db.VarChar(50)
+  currentVersion Int               @default(1) @map("current_version")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  versions       DocumentVersion[]
+  history        DocumentHistory[]
+
+  @@index([ownerId, deletedAt, updatedAt])
+  @@map("documents")
+}
+
+/// One uploaded file of a document. The file is stored in MinIO encrypted with its
+/// own random data key (AES-256-GCM); that key is stored here encrypted with the
+/// master key (envelope encryption).
+model DocumentVersion {
+  id               String   @id @default(uuid()) @db.Uuid
+  documentId       String   @map("document_id") @db.Uuid
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNo        Int      @map("version_no")
+  storageKey       String   @unique @map("storage_key") @db.VarChar(255)
+  mimeType         String   @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int      @map("size_bytes")
+  /// Hex SHA-256 of the original (plaintext) file.
+  sha256           String   @db.Char(64)
+  /// 12-byte GCM nonce used to encrypt the file.
+  iv               Bytes
+  /// 16-byte GCM authentication tag of the encrypted file.
+  authTag          Bytes    @map("auth_tag")
+  /// Data key encrypted with the master key: nonce (12) || ciphertext (32) || tag (16).
+  encryptedDataKey Bytes    @map("encrypted_data_key")
+  changeNote       String?  @map("change_note") @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdById      String   @map("created_by_id") @db.Uuid
+  createdBy        User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNo])
+  @@map("document_versions")
+}
+
+/// Change log of a document: who changed what, when, from which value to which.
+model DocumentHistory {
+  id          String        @id @default(uuid()) @db.Uuid
+  documentId  String        @map("document_id") @db.Uuid
+  document    Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  changedById String        @map("changed_by_id") @db.Uuid
+  changedBy   User          @relation(fields: [changedById], references: [id], onDelete: Cascade)
+  action      HistoryAction
+  field       String?       @db.VarChar(30)
+  oldValue    String?       @map("old_value") @db.VarChar(500)
+  newValue    String?       @map("new_value") @db.VarChar(500)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([documentId, createdAt])
+  @@map("document_history")
 }

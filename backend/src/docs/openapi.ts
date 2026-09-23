@@ -1,4 +1,15 @@
-import { APP_NAME, loginSchema, PROFILE_LIMITS, registerSchema } from '@driver-docs/shared';
+import {
+  APP_NAME,
+  DOCUMENT_LIMITS,
+  DOCUMENT_STATUSES,
+  DOCUMENT_TYPES,
+  HISTORY_ACTIONS,
+  loginSchema,
+  MAX_UPLOAD_BYTES,
+  PROFILE_LIMITS,
+  registerSchema,
+  STATUS_TRANSITIONS,
+} from '@driver-docs/shared';
 import { z } from 'zod';
 
 /**
@@ -33,6 +44,61 @@ function jsonResponse(description: string, schemaName: string) {
 /** Response used by every endpoint for errors in the uniform format. */
 const errorResponse = (description: string) => jsonResponse(description, 'ErrorResponse');
 
+/** Path parameter `id` of a document. */
+const documentIdParam = {
+  name: 'id',
+  in: 'path',
+  required: true,
+  schema: { type: 'string', format: 'uuid' },
+};
+
+/** Responses shared by every endpoint that addresses one document. */
+const documentErrors = {
+  401: errorResponse('Brak, błędny lub wygasły token'),
+  404: errorResponse('Dokument nie istnieje, został usunięty albo należy do innego użytkownika'),
+};
+
+/**
+ * Builds a multipart request body with the file field and the given text fields.
+ *
+ * @param fields - OpenAPI schemas of the text fields.
+ * @param required - Names of required fields (besides `file`).
+ * @returns An OpenAPI request body object.
+ */
+function multipartBody(fields: Record<string, unknown>, required: string[] = []) {
+  return {
+    required: true,
+    content: {
+      'multipart/form-data': {
+        schema: {
+          type: 'object',
+          required: ['file', ...required],
+          properties: {
+            file: {
+              type: 'string',
+              format: 'binary',
+              description: `JPG, PNG lub PDF (rozpoznawane po zawartości), maks. ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
+            },
+            ...fields,
+          },
+        },
+      },
+    },
+  };
+}
+
+/** Text field `changeNote` of an upload. */
+const changeNoteField = {
+  type: 'string',
+  maxLength: DOCUMENT_LIMITS.changeNote,
+  description: 'Opis wersji, np. skan z pieczątką odbiorcy',
+};
+
+/** Human-readable list of allowed status transitions for the PATCH description. */
+const transitionsText = Object.entries(STATUS_TRANSITIONS)
+  .map(([from, to]) => `${from} → ${to.length > 0 ? to.join(', ') : '(brak, tylko do odczytu)'}`)
+  .join('; ');
+
 /**
  * Builds the OpenAPI 3.0 specification of the REST API, served at
  * `/api/docs/openapi.json` and rendered by Swagger UI at `/api/docs`.
@@ -61,6 +127,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: 'health', description: 'Stan usługi' },
       { name: 'auth', description: 'Rejestracja i logowanie' },
       { name: 'profile', description: 'Profil kierowcy' },
+      { name: 'documents', description: 'Dokumenty, wersje plików i historia zmian' },
     ],
     paths: {
       '/health': {
@@ -147,6 +214,141 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             200: jsonResponse('Zaktualizowany profil', 'ProfileResponse'),
             400: errorResponse('Niepoprawne dane (VALIDATION_ERROR, szczegóły pól w details)'),
             401: errorResponse('Brak, błędny lub wygasły token'),
+          },
+        },
+      },
+
+      '/api/documents': {
+        get: {
+          tags: ['documents'],
+          summary: 'Lista własnych dokumentów (bez usuniętych), od ostatnio zmienionego',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'type', in: 'query', schema: { type: 'string', enum: DOCUMENT_TYPES } },
+            { name: 'status', in: 'query', schema: { type: 'string', enum: DOCUMENT_STATUSES } },
+            {
+              name: 'q',
+              in: 'query',
+              description: 'Szukany tekst w tytule lub numerze (bez rozróżniania wielkości liter)',
+              schema: { type: 'string', maxLength: 100 },
+            },
+            { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+            {
+              name: 'pageSize',
+              in: 'query',
+              schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            },
+          ],
+          responses: {
+            200: jsonResponse('Strona listy', 'DocumentListResponse'),
+            400: errorResponse('Niepoprawny filtr lub stronicowanie'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+          },
+        },
+        post: {
+          tags: ['documents'],
+          summary: 'Dodanie dokumentu z plikiem (wersja 1, status DRAFT)',
+          description:
+            'Plik jest szyfrowany (AES-256-GCM, własny klucz danych zaszyfrowany kluczem głównym) ' +
+            'przed zapisem w MinIO.',
+          security: [{ bearerAuth: [] }],
+          requestBody: multipartBody(
+            {
+              type: { type: 'string', enum: DOCUMENT_TYPES },
+              title: { type: 'string', minLength: 1, maxLength: DOCUMENT_LIMITS.title },
+              number: { type: 'string', maxLength: DOCUMENT_LIMITS.number },
+              changeNote: changeNoteField,
+            },
+            ['type', 'title'],
+          ),
+          responses: {
+            201: jsonResponse('Dokument utworzony', 'DocumentResponse'),
+            400: errorResponse('Niepoprawne pola lub plik (zły format, za duży, brak pliku)'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+          },
+        },
+      },
+      '/api/documents/{id}': {
+        get: {
+          tags: ['documents'],
+          summary: 'Szczegóły dokumentu z listą wersji i historią zmian',
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          responses: { 200: jsonResponse('Dokument', 'DocumentResponse'), ...documentErrors },
+        },
+        patch: {
+          tags: ['documents'],
+          summary: 'Zmiana tytułu, numeru lub statusu (każda zmiana trafia do historii)',
+          description: `Dozwolone zmiany statusu: ${transitionsText}.`,
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: ref('UpdateDocumentRequest') } },
+          },
+          responses: {
+            200: jsonResponse('Dokument po zmianie', 'DocumentResponse'),
+            400: errorResponse('Niepoprawne dane lub pusta zmiana'),
+            ...documentErrors,
+            409: errorResponse(
+              'Niedozwolona zmiana statusu (INVALID_STATUS_TRANSITION) albo dokument zarchiwizowany (DOCUMENT_ARCHIVED)',
+            ),
+          },
+        },
+        delete: {
+          tags: ['documents'],
+          summary: 'Usunięcie miękkie (dokument znika z API, dane i pliki zostają)',
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          responses: { 204: { description: 'Usunięto' }, ...documentErrors },
+        },
+      },
+      '/api/documents/{id}/versions': {
+        post: {
+          tags: ['documents'],
+          summary: 'Nowa wersja pliku (numer wersji + 1, poprzednie wersje zostają)',
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          requestBody: multipartBody({ changeNote: changeNoteField }),
+          responses: {
+            201: jsonResponse('Dokument z nową wersją', 'DocumentResponse'),
+            400: errorResponse('Niepoprawny plik'),
+            ...documentErrors,
+            409: errorResponse('Dokument zarchiwizowany (DOCUMENT_ARCHIVED)'),
+          },
+        },
+      },
+      '/api/documents/{id}/versions/{versionNo}/file': {
+        get: {
+          tags: ['documents'],
+          summary: 'Pobranie odszyfrowanego pliku wersji',
+          description:
+            'Domyślnie Content-Disposition: inline (podgląd); z download=1 jako załącznik. ' +
+            'Odpowiedź nie jest buforowana (Cache-Control: private, no-store).',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            documentIdParam,
+            {
+              name: 'versionNo',
+              in: 'path',
+              required: true,
+              schema: { type: 'integer', minimum: 1 },
+            },
+            { name: 'download', in: 'query', schema: { type: 'string', enum: ['1'] } },
+          ],
+          responses: {
+            200: {
+              description: 'Plik (ETag = SHA-256 zawartości)',
+              content: {
+                'application/pdf': { schema: { type: 'string', format: 'binary' } },
+                'image/jpeg': { schema: { type: 'string', format: 'binary' } },
+                'image/png': { schema: { type: 'string', format: 'binary' } },
+              },
+            },
+            ...documentErrors,
+            500: errorResponse(
+              'Plik w magazynie nie przeszedł kontroli integralności (FILE_INTEGRITY_ERROR)',
+            ),
           },
         },
       },
@@ -240,6 +442,81 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           type: 'object',
           required: ['profile'],
           properties: { profile: ref('Profile') },
+        },
+        UpdateDocumentRequest: {
+          type: 'object',
+          description: 'Co najmniej jedno pole; pominięte pola zostają bez zmian.',
+          properties: {
+            title: { type: 'string', minLength: 1, maxLength: DOCUMENT_LIMITS.title },
+            number: {
+              type: 'string',
+              nullable: true,
+              maxLength: DOCUMENT_LIMITS.number,
+              description: 'null lub pusty tekst usuwa numer',
+            },
+            status: { type: 'string', enum: DOCUMENT_STATUSES },
+          },
+        },
+        DocumentSummary: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            type: { type: 'string', enum: DOCUMENT_TYPES },
+            status: { type: 'string', enum: DOCUMENT_STATUSES },
+            title: { type: 'string' },
+            number: { type: 'string', nullable: true },
+            currentVersion: { type: 'integer' },
+            mimeType: { type: 'string', enum: ['image/jpeg', 'image/png', 'application/pdf'] },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        DocumentVersion: {
+          type: 'object',
+          properties: {
+            versionNo: { type: 'integer' },
+            mimeType: { type: 'string' },
+            sizeBytes: { type: 'integer' },
+            sha256: { type: 'string', description: 'SHA-256 oryginalnego pliku (hex)' },
+            changeNote: { type: 'string', nullable: true },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        DocumentHistoryEntry: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', enum: HISTORY_ACTIONS },
+            field: { type: 'string', nullable: true },
+            oldValue: { type: 'string', nullable: true },
+            newValue: { type: 'string', nullable: true },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        DocumentDetails: {
+          allOf: [
+            ref('DocumentSummary'),
+            {
+              type: 'object',
+              properties: {
+                versions: { type: 'array', items: ref('DocumentVersion') },
+                history: { type: 'array', items: ref('DocumentHistoryEntry') },
+              },
+            },
+          ],
+        },
+        DocumentResponse: {
+          type: 'object',
+          properties: { document: ref('DocumentDetails') },
+        },
+        DocumentListResponse: {
+          type: 'object',
+          properties: {
+            items: { type: 'array', items: ref('DocumentSummary') },
+            page: { type: 'integer' },
+            pageSize: { type: 'integer' },
+            total: { type: 'integer' },
+            totalPages: { type: 'integer' },
+          },
         },
         LivenessResponse: {
           type: 'object',

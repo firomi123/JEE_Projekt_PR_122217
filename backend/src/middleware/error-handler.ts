@@ -32,8 +32,9 @@ function bodyParserErrorType(err: unknown): string | undefined {
  * - anything else → 500 `INTERNAL_ERROR` with a generic message, so stack traces
  *   and internal details never reach the client.
  *
- * Side effects: logs unexpected errors (level `error`, with stack) through the
- * request's logger, so the entry carries the `requestId`. Client errors are
+ * Side effects: logs unexpected errors and application errors with status ≥ 500
+ * (level `error`, with stack) through the request's logger, so the entry carries
+ * the `requestId`. Client errors are
  * already logged by the request logger at level `warn`.
  *
  * @returns An Express error-handling middleware (four arguments).
@@ -45,6 +46,9 @@ export function errorHandler(): ErrorRequestHandler {
     const parserError = bodyParserErrorType(err);
 
     if (err instanceof AppError) {
+      // Server-side application errors (e.g. a stored file failing its integrity
+      // check) need attention even though they have a well-defined response.
+      if (err.status >= 500) req.log.error({ err }, err.message);
       status = err.status;
       body = { error: { code: err.code, message: err.message } };
       if (err.details !== undefined) body.error.details = err.details;

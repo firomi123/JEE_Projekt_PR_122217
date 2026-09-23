@@ -38,7 +38,10 @@ export class ValidationError extends AppError {
    * @param issues - Per-field problems, returned in `error.details`.
    * @param message - Overall description; defaults to a generic one.
    */
-  constructor(issues: FieldIssue[], message = 'Request validation failed') {
+  constructor(
+    readonly issues: FieldIssue[],
+    message = 'Request validation failed',
+  ) {
     super(400, 'VALIDATION_ERROR', message, issues);
   }
 

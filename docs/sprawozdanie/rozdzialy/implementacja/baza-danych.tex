@@ -111,5 +111,27 @@ braku profilu.
 \label{fig:erd}
 \end{figure}
 
-\douzupelnienia{tabele dokumentów, wersji i historii zmian, rozszerzenie
-diagramu ERD; Etap 6}
+Trzecia migracja (\texttt{documents}) dodaje tabele dokumentów, ich wersji
+i historii zmian oraz typy wyliczeniowe \texttt{DocumentType},
+\texttt{DocumentStatus} i \texttt{HistoryAction}
+(rysunek~\ref{fig:erd}):
+
+\begin{itemize}
+  \item \texttt{documents}: metadane dokumentu, numer bieżącej wersji
+        i data usunięcia (usuwanie miękkie). Indeks
+        \texttt{(owner\_id, deleted\_at, updated\_at)} odpowiada zapytaniu
+        listy: dokumenty jednego właściciela, bez usuniętych, od ostatnio
+        zmienionego.
+  \item \texttt{document\_versions}: jedna wersja pliku z kluczem obiektu
+        w MinIO, formatem, rozmiarem, skrótem SHA-256 oryginału i parametrami
+        szyfrowania: wektor inicjujący (12~B), znacznik GCM (16~B) oraz
+        zaszyfrowany klucz danych (60~B) w kolumnach typu \texttt{BYTEA}. Para
+        \texttt{(document\_id, version\_no)} jest unikalna.
+  \item \texttt{document\_history}: dziennik zmian z autorem, rodzajem zmiany,
+        polem oraz starą i nową wartością.
+\end{itemize}
+
+Samych plików, nawet zaszyfrowanych, nie ma w bazie danych. Przechowuje je
+MinIO, co ogranicza rozmiar bazy i jej kopii zapasowych. Z kolei w MinIO nie
+ma niczego, co pozwalałoby odszyfrować pliki. Do odczytu dokumentu potrzebny
+jest dostęp do obu magazynów oraz klucz główny z konfiguracji serwera.

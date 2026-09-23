@@ -3,6 +3,7 @@ import express, { type Express } from 'express';
 import type { Logger } from 'pino';
 import type { Config } from './config/env.js';
 import { AuthController } from './controllers/auth.controller.js';
+import { DocumentController } from './controllers/document.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { ProfileController } from './controllers/profile.controller.js';
 import type { PrismaClient } from './lib/prisma.js';
@@ -11,14 +12,19 @@ import { notFound } from './middleware/not-found.js';
 import { loginRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { requireAuth } from './middleware/require-auth.js';
+import { DocumentRepository } from './repositories/document.repository.js';
 import { HealthRepository } from './repositories/health.repository.js';
 import { ProfileRepository } from './repositories/profile.repository.js';
+import { StorageRepository } from './repositories/storage.repository.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createDocsRouter } from './routes/docs.js';
+import { createDocumentsRouter } from './routes/documents.js';
 import { createHealthRouter } from './routes/health.js';
 import { createProfileRouter } from './routes/profile.js';
 import { AuthService } from './services/auth.service.js';
+import { DocumentService } from './services/document.service.js';
+import { EncryptionService } from './services/encryption.service.js';
 import { HealthService } from './services/health.service.js';
 import { ProfileService } from './services/profile.service.js';
 import { TokenService } from './services/token.service.js';
@@ -45,6 +51,8 @@ export interface AppDependencies {
  *   frontend nginx forwards, since it proxies `/api/*` unchanged),
  * - `/api/auth` – registration, login (rate limited), current user,
  * - `/api/profile` – the caller's driver profile (authenticated),
+ * - `/api/documents` – the caller's documents: upload (encrypted in MinIO),
+ *   versions, status and history, soft delete, download (authenticated),
  * - `/api/docs` – OpenAPI specification and Swagger UI.
  *
  * `trust proxy` is set to `config.trustProxy` hops, so behind nginx `req.ip` (used
@@ -84,6 +92,20 @@ export function createApp(deps: AppDependencies): Express {
     '/api/profile',
     createProfileRouter(
       new ProfileController(new ProfileService(new ProfileRepository(prisma))),
+      authenticate,
+    ),
+  );
+
+  app.use(
+    '/api/documents',
+    createDocumentsRouter(
+      new DocumentController(
+        new DocumentService(
+          new DocumentRepository(prisma),
+          new StorageRepository(s3, config.s3.bucket),
+          new EncryptionService(config.masterEncryptionKey),
+        ),
+      ),
       authenticate,
     ),
   );

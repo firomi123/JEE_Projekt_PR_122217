@@ -22,6 +22,13 @@ describe('API documentation', () => {
         'GET /api/auth/me',
         'GET /api/profile',
         'PUT /api/profile',
+        'GET /api/documents',
+        'POST /api/documents',
+        'GET /api/documents/{id}',
+        'PATCH /api/documents/{id}',
+        'DELETE /api/documents/{id}',
+        'POST /api/documents/{id}/versions',
+        'GET /api/documents/{id}/versions/{versionNo}/file',
       ].sort(),
     );
   });

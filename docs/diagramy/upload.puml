@@ -1,0 +1,27 @@
+@startuml upload
+' Sekwencja dodania dokumentu z szyfrowaniem kopertowym
+skinparam dpi 200
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+autonumber
+
+actor "Kierowca" as K
+participant "Backend\n(Express)" as B
+participant "EncryptionService" as E
+database "MinIO" as M
+database "PostgreSQL" as DB
+
+K -> B : POST /api/documents\n(multipart: plik + typ, tytuł, numer)
+B -> B : requireAuth (JWT)
+B -> B : walidacja pól (Zod)\nformat pliku po sygnaturze, maks. 10 MB
+B -> E : encrypt(plik, kontekst = klucz obiektu)
+E -> E : losowy klucz danych (256 bitów)\nAES-256-GCM(plik) → szyfrogram, iv, tag
+E -> E : AES-256-GCM(klucz główny, klucz danych)\n→ zaszyfrowany klucz danych
+E --> B : szyfrogram, iv, tag,\nzaszyfrowany klucz danych
+B -> M : PUT <właściciel>/<dokument>/<wersja>\n(tylko szyfrogram)
+B -> DB : transakcja: document + version 1\n(iv, tag, zaszyfrowany klucz, SHA-256)\n+ historia CREATED
+alt zapis w bazie nieudany
+  B -> M : DELETE obiektu (sprzątanie)
+end
+B --> K : 201 { document }
+@enduml

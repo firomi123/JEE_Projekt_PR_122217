@@ -92,6 +92,12 @@ potrzebują bloków \texttt{try/catch}.
 \hline
 \texttt{TOO\_MANY\_REQUESTS} & 429 & Przekroczony limit nieudanych logowań \\
 \hline
+\texttt{INVALID\_STATUS\_TRANSITION} & 409 & Niedozwolona zmiana statusu dokumentu \\
+\hline
+\texttt{DOCUMENT\_ARCHIVED} & 409 & Próba zmiany zarchiwizowanego dokumentu \\
+\hline
+\texttt{FILE\_INTEGRITY\_ERROR} & 500 & Plik w magazynie nie przeszedł kontroli integralności \\
+\hline
 \texttt{INTERNAL\_ERROR} & 500 & Nieoczekiwany błąd serwera \\
 \hline
 \end{tabular}
@@ -137,7 +143,7 @@ dostępne pod ścieżką \texttt{/health} (dla Dockera) oraz \texttt{/api/health
 \caption{Endpointy API}
 \label{tab:endpointy}
 \small
-\begin{tabular}{|l|l|p{0.4\textwidth}|}
+\begin{tabular}{|l|p{0.45\textwidth}|p{0.33\textwidth}|}
 \hline
 \textbf{Metoda} & \textbf{Ścieżka} & \textbf{Opis} \\
 \hline
@@ -154,6 +160,20 @@ GET & \texttt{/api/auth/me} & Dane zalogowanego użytkownika (wymaga tokenu) \\
 GET & \texttt{/api/profile} & Profil zalogowanego kierowcy (wymaga tokenu) \\
 \hline
 PUT & \texttt{/api/profile} & Zmiana profilu (wymaga tokenu) \\
+\hline
+GET & \texttt{/api/documents} & Lista dokumentów z filtrami i stronicowaniem \\
+\hline
+POST & \texttt{/api/documents} & Dodanie dokumentu z plikiem (multipart) \\
+\hline
+GET & \texttt{/api/documents/:id} & Szczegóły z wersjami i historią \\
+\hline
+PATCH & \texttt{/api/documents/:id} & Zmiana tytułu, numeru, statusu \\
+\hline
+DELETE & \texttt{/api/documents/:id} & Usunięcie miękkie \\
+\hline
+POST & \texttt{/api/documents/:id/versions} & Nowa wersja pliku \\
+\hline
+GET & \path{/api/documents/:id/versions/:no/file} & Pobranie odszyfrowanego pliku \\
 \hline
 GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
 \hline
@@ -256,6 +276,99 @@ dokładnie oczekiwaną listę endpointów. Dodanie endpointu wymaga więc
 uzupełnienia tej listy w teście, co przypomina o dopisaniu go do
 dokumentacji.
 
-\douzupelnienia{endpointy profilu i dokumentów, szyfrowanie kopertowe
-(diagram sekwencji uploadu), wersjonowanie, autoryzacja dostępu do dokumentów;
-Etapy 5--6}
+\subsubsection{Dokumenty}
+
+Dokument ma typ (CMR, WZ, faktura lub inny), status, tytuł, opcjonalny numer
+(np. numer listu CMR) i co najmniej jedną wersję pliku. Plik jest przesyłany
+jako formularz \texttt{multipart/form-data}, a jego treść przechowuje MinIO.
+Baza danych zawiera metadane, parametry szyfrowania i historię zmian.
+
+\paragraph{Kontrola przesyłanych plików.} Akceptowane są wyłącznie zdjęcia JPG
+i PNG oraz pliki PDF o rozmiarze do 10~MB. Format jest rozpoznawany po
+pierwszych bajtach pliku (sygnaturze formatu), a nie po rozszerzeniu nazwy ani
+po nagłówku \texttt{Content-Type}, które ustala klient i które łatwo sfałszować.
+Plik wykonywalny przemianowany na \texttt{.pdf} zostaje odrzucony. Błędy pól
+formularza i pliku są zgłaszane razem w jednej odpowiedzi 400, każdy przy swoim
+polu. Middleware sprawdzający token działa przed odczytem pliku, więc anonimowe
+żądanie jest odrzucane, zanim serwer przyjmie 10~MB danych.
+
+\paragraph{Szyfrowanie kopertowe.} Każdy plik jest szyfrowany przed zapisem
+w MinIO (rysunek~\ref{fig:upload}). Dla każdej wersji serwer losuje nowy
+256-bitowy klucz danych i szyfruje nim plik algorytmem AES-256-GCM, który
+zapewnia jednocześnie poufność i integralność \cite{nist_gcm}. Klucz danych jest
+następnie szyfrowany (,,opakowywany'') kluczem głównym z konfiguracji
+(\texttt{MASTER\_ENCRYPTION\_KEY}) i zapisywany w bazie razem z wektorem
+inicjującym i znacznikiem uwierzytelniającym. Do MinIO trafia wyłącznie
+szyfrogram. Takie rozwiązanie ma trzy zalety. Kluczem głównym nie szyfruje się
+dużych ilości danych. Wyciek pojedynczego klucza danych ujawnia tylko jeden
+plik. Wymiana klucza głównego wymaga ponownego zaszyfrowania jedynie
+32-bajtowych kluczy danych, a nie wszystkich plików. Oba szyfrowania mają jako
+dane uwierzytelniane (AAD) klucz obiektu w MinIO. Szyfrogram lub klucz danych
+skopiowany do innej wersji nie da się więc odszyfrować.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{diagramy/upload.png}
+\caption{Sekwencja dodania dokumentu z szyfrowaniem kopertowym}
+\label{fig:upload}
+\end{figure}
+
+Zapis przebiega w kolejności: szyfrowanie, zapis obiektu w MinIO, transakcja
+w bazie danych (dokument, wersja i wpis historii). Jeśli transakcja się nie
+powiedzie, obiekt jest usuwany z MinIO, żeby nie zostawały pliki bez
+metadanych.
+
+\paragraph{Pobieranie i kontrola integralności.} Endpoint
+\path{/api/documents/:id/versions/:no/file} odczytuje szyfrogram, odszyfrowuje
+klucz danych, a potem plik, i porównuje skrót SHA-256 z zapisanym w bazie.
+Dopiero po pozytywnej weryfikacji znacznika GCM i skrótu plik jest wysyłany do
+klienta. Plik zmieniony w magazynie choćby o jeden bajt powoduje odpowiedź
+500 \texttt{FILE\_INTEGRITY\_ERROR} i wpis w logu, a klient nie otrzymuje
+żadnej części treści. Z tego powodu plik jest odszyfrowywany w całości
+w pamięci, a nie przesyłany strumieniowo: przy strumieniu część danych
+trafiłaby do klienta przed sprawdzeniem znacznika, który GCM weryfikuje na
+końcu. Przy limicie 10~MB takie podejście jest bezpieczne pamięciowo.
+Odpowiedź ma nagłówki \texttt{Cache-Control: private, no-store} (poufne
+dokumenty nie są zapisywane w pamięci podręcznej),
+\texttt{X-Content-Type-Options: nosniff}, \texttt{ETag} równy skrótowi SHA-256
+oraz nazwę pliku w dwóch postaciach: bez polskich znaków (\texttt{filename})
+i w UTF-8 (\texttt{filename*}).
+
+\paragraph{Wersjonowanie.} Endpoint \texttt{POST /api/documents/:id/versions}
+dodaje nową wersję pliku. Numer wersji jest zwiększany w bazie danych
+(\texttt{current\_version = current\_version + 1}) w tej samej transakcji,
+w której zapisywana jest wersja. Dwa jednoczesne przesłania dostają więc
+różne numery, a unikalny indeks \texttt{(document\_id, version\_no)} jest
+dodatkowym zabezpieczeniem. Wcześniejsze wersje pozostają dostępne do
+pobrania, każda zaszyfrowana własnym kluczem.
+
+\paragraph{Statusy i historia zmian.} Dozwolone zmiany statusu przedstawia
+rysunek~\ref{fig:statusy}. Reguły są zapisane w pakiecie \texttt{shared}, więc
+w interfejsie będzie można pokazać tylko dozwolone przyciski. Niedozwolona
+zmiana daje 409 \texttt{INVALID\_STATUS\_TRANSITION} z polskim komunikatem,
+np. ,,Nie można zmienić statusu z Roboczy na Zaakceptowany'', a żadne
+pole dokumentu się nie zmienia. Dokument zarchiwizowany jest tylko do
+odczytu (409 \texttt{DOCUMENT\_ARCHIVED}). Każda rzeczywista zmiana tytułu,
+numeru lub statusu, dodanie wersji, utworzenie i usunięcie dokumentu trafia do
+historii: kto, kiedy, jakie pole, stara i nowa wartość. Żądanie, które niczego
+nie zmienia, nie tworzy wpisów.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{diagramy/statusy.png}
+\caption{Diagram stanów dokumentu}
+\label{fig:statusy}
+\end{figure}
+
+\paragraph{Lista i usuwanie.} Lista zwraca dokumenty użytkownika od ostatnio
+zmienionego, z filtrami typu i statusu, wyszukiwaniem tekstu w tytule
+i numerze (bez rozróżniania wielkości liter, także polskich) oraz
+stronicowaniem (domyślnie 20, maksymalnie 100 pozycji). Usunięcie jest
+miękkie: dokument dostaje datę usunięcia i znika ze wszystkich endpointów, ale
+wiersze, historia i zaszyfrowane pliki zostają.
+
+\paragraph{Autoryzacja.} Każde zapytanie repozytorium dokumentów zawiera
+warunek na właściciela i pomija dokumenty usunięte. Cudzy dokument jest
+nieodróżnialny od nieistniejącego: każda operacja na nim zwraca 404, więc
+nie da się nawet sprawdzić, czy dany identyfikator istnieje. Identyfikatory
+są losowymi UUID, więc nie da się ich zgadywać po kolei.

@@ -124,6 +124,56 @@ poleceń w konsoli Windows, a nie aplikacja. Mimo to dodano test funkcjonalny
 z polskimi znakami, żeby ta własność była sprawdzana przy każdym uruchomieniu
 testów.
 
-\douzupelnienia{testy funkcjonalne kolejnych etapów, testy Playwright,
-raport pokrycia, przykład naprawy błędu metodą test, potem poprawka;
-Etapy 6--12}
+\subsubsection{Testy dokumentów}
+
+W Etapie 6 najpierw napisano 47 testów funkcjonalnych API dokumentów.
+Uruchomione przed implementacją, wszystkie nie przechodziły z oczekiwanego
+powodu (404, brak endpointów). Pliki testowe są generowane w teście:
+prawdziwa sygnatura formatu i losowa reszta, więc każdy plik ma inny skrót.
+Testy sprawdzają m.in.:
+
+\begin{itemize}
+  \item pobrany plik jest bajt w bajt identyczny z przesłanym (m.in. zdjęcie
+        JPG o rozmiarze 50~kB);
+  \item obiekt odczytany z MinIO z pominięciem API różni się od oryginału,
+        nie zawiera tekstu umieszczonego w pliku i nie zaczyna się od
+        sygnatury \texttt{\%PDF-}; parametry szyfrowania mają oczekiwane
+        rozmiary i nie pojawiają się w odpowiedziach API;
+  \item format jest rozpoznawany po zawartości: PNG nazwany \texttt{.pdf}
+        zostaje zapisany jako PNG, a plik wykonywalny nazwany \texttt{.pdf}
+        i plik tekstowy są odrzucane; plik o rozmiarze 10~MB + 1~bajt jest
+        odrzucany, a plik o rozmiarze dokładnie 10~MB przyjmowany; brak pliku
+        i dwa pliki dają 400;
+  \item kolejne wersje dostają numery 2, 3, 4, starsze wersje nadal można
+        pobrać, a ten sam plik w dwóch wersjach ma różne zaszyfrowane klucze
+        danych;
+  \item filtrowanie po typie, statusie i obu naraz, wyszukiwanie z polskimi
+        znakami, stronicowanie, kolejność od ostatnio zmienionego;
+  \item zmiana statusu zgodna z regułami zapisuje wpis w historii,
+        niedozwolona daje 409 i nie zmienia niczego (także innych pól
+        z tego samego żądania); dokument zarchiwizowany jest tylko do
+        odczytu;
+  \item usunięty dokument znika z listy, szczegółów i pobierania, ale wiersz
+        z historią zostaje; ponowne usunięcie daje 404;
+  \item każda operacja na cudzym dokumencie (odczyt, pobranie pliku, zmiana,
+        nowa wersja, usunięcie) daje 404 i nie zmienia dokumentu;
+  \item plik zmieniony w MinIO o jeden bajt nie jest wydawany (500
+        \texttt{FILE\_INTEGRITY\_ERROR}).
+\end{itemize}
+
+Testy jednostkowe obejmują szyfrowanie (14 testów: poprawne odszyfrowanie,
+w tym pliku 10~MB, losowość klucza i wektora, wykrycie zmiany jednego bitu
+szyfrogramu, znacznika, wektora i zaszyfrowanego klucza, obcięte dane,
+przeniesienie do innego kontekstu, inny klucz główny), rozpoznawanie formatu
+plików (9 testów) oraz reguły przejść statusów i schematy dokumentów
+(26 testów w pakiecie \texttt{shared}, m.in. sprawdzenie, że z każdego
+statusu da się dojść do archiwizacji).
+
+Skuteczność testów sprawdzono pięcioma celowymi usterkami: brak warunku na
+właściciela w zapytaniu, zapis pliku w MinIO bez szyfrowania, pominięcie
+reguł przejść statusów, pokazywanie usuniętych dokumentów na liście
+i przyjmowanie plików o nierozpoznanym formacie. Każda usterka spowodowała
+niepowodzenie od jednego do pięciu testów.
+
+\douzupelnienia{testy Playwright, raport pokrycia, przykład naprawy błędu
+metodą test, potem poprawka; Etapy 7--12}

@@ -29,5 +29,54 @@ entity "driver_profiles" as profiles {
   * updated_at : TIMESTAMPTZ
 }
 
-users ||--|| profiles : "ON DELETE CASCADE"
+entity "documents" as documents {
+  * id : UUID <<PK>>
+  --
+  * owner_id : UUID <<FK>>
+  * type : DocumentType
+  * status : DocumentStatus
+  * title : VARCHAR(200)
+  number : VARCHAR(50)
+  * current_version : INT
+  * created_at, updated_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+entity "document_versions" as versions {
+  * id : UUID <<PK>>
+  --
+  * document_id : UUID <<FK>>
+  * version_no : INT
+  * storage_key : VARCHAR(255) <<unique>>
+  * mime_type : VARCHAR(100)
+  * size_bytes : INT
+  * sha256 : CHAR(64)
+  * iv : BYTEA
+  * auth_tag : BYTEA
+  * encrypted_data_key : BYTEA
+  change_note : VARCHAR(500)
+  * created_by_id : UUID <<FK>>
+  * created_at : TIMESTAMPTZ
+  ..
+  unique(document_id, version_no)
+}
+
+entity "document_history" as history {
+  * id : UUID <<PK>>
+  --
+  * document_id : UUID <<FK>>
+  * changed_by_id : UUID <<FK>>
+  * action : HistoryAction
+  field : VARCHAR(30)
+  old_value : VARCHAR(500)
+  new_value : VARCHAR(500)
+  * created_at : TIMESTAMPTZ
+}
+
+users ||--|| profiles : "1:1"
+users ||--o{ documents : "właściciel"
+documents ||--|{ versions
+documents ||--o{ history
+users ||--o{ versions : "autor"
+users ||--o{ history : "autor zmiany"
 @enduml

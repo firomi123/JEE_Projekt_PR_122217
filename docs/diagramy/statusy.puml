@@ -1,0 +1,25 @@
+@startuml statusy
+' Diagram stanów dokumentu (STATUS_TRANSITIONS w shared/src/documents.ts)
+skinparam dpi 200
+skinparam shadowing false
+hide empty description
+
+state "Roboczy\nDRAFT" as DRAFT
+state "Przesłany\nSUBMITTED" as SUBMITTED
+state "Zaakceptowany\nACCEPTED" as ACCEPTED
+state "Odrzucony\nREJECTED" as REJECTED
+state "Zarchiwizowany\nARCHIVED" as ARCHIVED
+
+[*] --> DRAFT : dodanie dokumentu
+DRAFT --> SUBMITTED : przesłanie do biura
+SUBMITTED --> DRAFT : wycofanie
+SUBMITTED --> ACCEPTED : akceptacja
+SUBMITTED --> REJECTED : odrzucenie
+REJECTED --> DRAFT : poprawa
+REJECTED --> SUBMITTED : ponowne przesłanie
+DRAFT --> ARCHIVED
+REJECTED --> ARCHIVED
+ACCEPTED --> ARCHIVED
+ARCHIVED --> [*]
+note right of ARCHIVED : tylko do odczytu
+@enduml
