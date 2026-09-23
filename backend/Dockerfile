@@ -17,7 +17,15 @@ COPY shared/ shared/
 COPY backend/ backend/
 RUN npm run build -w shared && npm run build -w backend
 
-# ---- Stage 2: production image with runtime dependencies only ----
+# ---- Stage 2a: one-shot database migration job (docker compose service `migrate`) ----
+# Reuses the build stage, which already has the Prisma CLI (a dev dependency),
+# so the CLI does not end up in the production image.
+FROM build AS migrate
+WORKDIR /app/backend
+USER node
+CMD ["/app/node_modules/.bin/prisma", "migrate", "deploy"]
+
+# ---- Stage 2b: production image with runtime dependencies only ----
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app

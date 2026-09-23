@@ -1,4 +1,143 @@
 \subsection{Backend}
 \label{sec:backend}
 
-\douzupelnienia{warstwy aplikacji, lista endpointów, szyfrowanie kopertowe (diagram sekwencji uploadu), wersjonowanie, autoryzacja; Etapy 3--6}
+Backend to serwer REST API napisany w TypeScripcie na platformie Node.js
+z frameworkiem Express 5 \cite{nodejs,express}. Kod jest kompilowany do modułów
+ECMAScript i uruchamiany w kontenerze opisanym w podrozdziale~\ref{sec:docker}.
+
+\subsubsection{Warstwy aplikacji}
+
+Kod podzielono na warstwy, z których każda korzysta tylko z warstwy leżącej
+bezpośrednio pod nią:
+
+\begin{itemize}
+  \item \textbf{trasy} (\texttt{routes/}) przypisują metody i ścieżki HTTP
+        do funkcji kontrolera;
+  \item \textbf{kontrolery} (\texttt{controllers/}) odczytują dane z żądania,
+        wywołują serwis i budują odpowiedź HTTP (kod statusu, treść JSON);
+  \item \textbf{serwisy} (\texttt{services/}) zawierają logikę biznesową
+        i nie znają protokołu HTTP;
+  \item \textbf{repozytoria} (\texttt{repositories/}) jako jedyne komunikują się
+        z bazą danych (Prisma) i magazynem plików (API S3).
+\end{itemize}
+
+Aplikację buduje funkcja \texttt{createApp(deps)}, która otrzymuje gotowe
+zależności: konfigurację, logger, klienta bazy danych i klienta S3. Tworzy je
+dopiero plik \texttt{server.ts}, który następnie uruchamia serwer HTTP. Dzięki
+temu testy mogą zbudować aplikację z innymi zależnościami, np. z adresem
+nieistniejącej bazy danych, i sprawdzić zachowanie systemu przy awarii
+(podrozdział~\ref{sec:testy}).
+
+\subsubsection{Walidacja konfiguracji}
+
+Przy starcie zmienne środowiskowe są sprawdzane schematem biblioteki Zod
+\cite{zod}. Sprawdzane są m.in.: format adresu bazy danych, poprawność adresu
+URL magazynu MinIO, minimalna długość sekretu JWT (32 znaki) oraz to, czy
+klucz główny szyfrowania jest zapisem base64 dokładnie 32 bajtów. Puste
+wartości są traktowane jak brakujące. Przy błędnej konfiguracji proces wypisuje
+listę \emph{wszystkich} nieprawidłowych zmiennych (bez ich wartości, żeby nie
+ujawnić sekretów w logach) i kończy się kodem~1. Kontener z błędną
+konfiguracją zatrzymuje się więc od razu i widać przyczynę, zamiast działać
+i zgłaszać błędy przy pierwszym żądaniu.
+
+\subsubsection{Obsługa błędów}
+
+Wszystkie błędy trafiają do jednego middleware'u obsługi błędów, który zwraca
+je w jednolitym formacie:
+
+\begin{small}
+\begin{verbatim}
+{ "error": { "code": "VALIDATION_ERROR",
+             "message": "Request validation failed",
+             "details": [ { "path": "email", "message": "..." } ] } }
+\end{verbatim}
+\end{small}
+
+Pole \texttt{code} jest stałym identyfikatorem, na podstawie którego frontend
+wyświetla komunikat po polsku. Pole \texttt{message} jest opisem dla
+programisty, a \texttt{details} zawiera np. błędy poszczególnych pól formularza.
+Błędy przewidziane przez aplikację są klasami pochodnymi \texttt{AppError}
+(tabela~\ref{tab:bledy}). Każdy inny wyjątek zamieniany jest na odpowiedź
+500 \texttt{INTERNAL\_ERROR} z ogólnym komunikatem, a szczegóły (np. treść
+błędu bazy danych) trafiają wyłącznie do logu. Express 5 przekazuje do tego
+middleware'u również wyjątki z funkcji asynchronicznych, więc kontrolery nie
+potrzebują bloków \texttt{try/catch}.
+
+\begin{table}[htbp]
+\centering
+\caption{Kody błędów API}
+\label{tab:bledy}
+\small
+\begin{tabular}{|l|c|p{0.5\textwidth}|}
+\hline
+\textbf{Kod} & \textbf{HTTP} & \textbf{Znaczenie} \\
+\hline
+\texttt{VALIDATION\_ERROR} & 400 & Niepoprawne dane wejściowe (\texttt{ValidationError}) \\
+\hline
+\texttt{INVALID\_JSON} & 400 & Treść żądania nie jest poprawnym JSON-em \\
+\hline
+\texttt{FORBIDDEN} & 403 & Brak uprawnień do operacji (\texttt{ForbiddenError}) \\
+\hline
+\texttt{NOT\_FOUND} & 404 & Nieznana ścieżka lub zasób (\texttt{NotFoundError}) \\
+\hline
+\texttt{PAYLOAD\_TOO\_LARGE} & 413 & Treść JSON większa niż 1~MB \\
+\hline
+\texttt{INTERNAL\_ERROR} & 500 & Nieoczekiwany błąd serwera \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Logowanie zdarzeń}
+
+Logi są zapisywane biblioteką pino \cite{pino} jako jeden obiekt JSON na
+linię. Taki format łatwo przeszukiwać i zbierać centralnie
+(podrozdział~\ref{sec:monitoring}). Każde żądanie dostaje identyfikator
+(\texttt{requestId}): jeśli klient przesłał poprawny nagłówek
+\texttt{X-Request-Id}, jest on używany ponownie, w przeciwnym razie
+generowany jest nowy UUID. Identyfikator trafia do nagłówka odpowiedzi i do
+każdego wpisu w logu powstałego podczas obsługi żądania. Po zakończeniu
+żądania zapisywany jest jeden wpis z metodą, adresem, kodem odpowiedzi i czasem
+obsługi, na poziomie \texttt{warn} dla błędów klienta i \texttt{error} dla
+błędów serwera. Nagłówki \texttt{Authorization} i \texttt{Cookie} są w logach
+zamaskowane. Zapytania kontrolne Dockera do \texttt{/health}, wykonywane co
+10~sekund, nie są logowane. W trybie deweloperskim logi są formatowane
+czytelnie przez \texttt{pino-pretty}.
+
+\subsubsection{Punkty kontroli stanu}
+
+Backend udostępnia dwa punkty kontroli stanu (tabela~\ref{tab:endpointy}),
+dostępne pod ścieżką \texttt{/health} (dla Dockera) oraz \texttt{/api/health}
+(przez serwer nginx).
+
+\begin{itemize}
+  \item \textbf{Liveness} (\texttt{GET /health}) odpowiada kodem 200, dopóki
+        proces obsługuje żądania HTTP. Celowo nie sprawdza bazy danych:
+        awaria bazy nie powinna powodować restartu działającego backendu.
+  \item \textbf{Readiness} (\texttt{GET /health/ready}) równolegle sprawdza
+        PostgreSQL (zapytanie \texttt{SELECT 1}) i MinIO (\texttt{HeadBucket}
+        na buckecie dokumentów), każde z limitem 3~sekund. Zwraca 200 i
+        \texttt{\{"status":"ready"\}} albo 503 i \texttt{\{"status":"not\_ready"\}},
+        a w polu \texttt{checks} status każdej zależności (\texttt{up} lub
+        \texttt{down}). Przyczyny awarii są zapisywane w logu, ale nie są
+        zwracane klientowi, żeby nie ujawniać wewnętrznych adresów.
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{Endpointy API}
+\label{tab:endpointy}
+\small
+\begin{tabular}{|l|l|p{0.4\textwidth}|}
+\hline
+\textbf{Metoda} & \textbf{Ścieżka} & \textbf{Opis} \\
+\hline
+GET & \texttt{/health}, \texttt{/api/health} & Liveness -- proces działa \\
+\hline
+GET & \texttt{/health/ready}, \texttt{/api/health/ready} & Readiness -- baza danych i MinIO dostępne \\
+\hline
+\end{tabular}
+\end{table}
+
+\douzupelnienia{endpointy uwierzytelniania, profilu i dokumentów,
+szyfrowanie kopertowe (diagram sekwencji uploadu), wersjonowanie, autoryzacja;
+Etapy 4--6}

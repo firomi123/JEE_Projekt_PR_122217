@@ -2,8 +2,8 @@
 \label{sec:docker}
 
 Cały system jest opisany w pliku \texttt{docker-compose.yml} \cite{docker}
-i uruchamiany poleceniem \texttt{docker compose up -d --build --wait}
-(w repozytorium: \texttt{npm run docker:up}). Opcja \texttt{--wait} kończy
+i uruchamiany poleceniem \texttt{docker compose up -d -{}-build -{}-wait}
+(w repozytorium: \texttt{npm run docker:up}). Opcja \texttt{-{}-wait} kończy
 polecenie dopiero wtedy, gdy wszystkie kontenery zgłoszą stan \emph{healthy}.
 Usługi zestawiono w tabeli~\ref{tab:uslugi}.
 
@@ -19,6 +19,8 @@ Usługi zestawiono w tabeli~\ref{tab:uslugi}.
 \texttt{frontend} & własny (nginx) & 8090 & \texttt{GET /nginx-health} \\
 \hline
 \texttt{backend} & własny (Node.js 22) & -- & \texttt{GET /health} \\
+\hline
+\texttt{migrate} & własny (etap \emph{migrate}) & -- & zadanie jednorazowe \\
 \hline
 \texttt{postgres} & \texttt{postgres:16-alpine} & 5432\textsuperscript{*} & \texttt{pg\_isready} \\
 \hline
@@ -47,6 +49,12 @@ katalog główny repozytorium, ponieważ oba pakiety korzystają ze wspólnego
 pakietu \texttt{shared}. Polecenie \texttt{npm ci -w} instaluje przy tym
 zależności tylko potrzebnych pakietów monorepo. Gotowy obraz backendu zajmuje
 około 250~MB, a obraz frontendu około 83~MB.
+
+Plik \texttt{backend/Dockerfile} ma jeszcze trzeci etap, \emph{migrate}. Powstaje
+on z etapu \emph{build}, który zawiera narzędzie wiersza poleceń Prisma, i służy
+jednorazowej usłudze \texttt{migrate} do stosowania migracji bazy danych
+(podrozdział~\ref{sec:baza-danych}). Narzędzie to jest zależnością deweloperską,
+więc nie trafia do obrazu produkcyjnego.
 
 Oba obrazy działają na koncie użytkownika bez uprawnień administratora:
 backend jako użytkownik \texttt{node} (UID 1000), a frontend na obrazie
@@ -77,10 +85,12 @@ nie jest zapisywany w pamięci podręcznej.
 Każda usługa ma zdefiniowany \texttt{healthcheck} oraz politykę
 \texttt{restart: unless-stopped}. Kolejność uruchamiania wynika z warunków
 \texttt{depends\_on}: backend startuje dopiero wtedy, gdy PostgreSQL i MinIO
-są \emph{healthy}, a zadanie \texttt{minio-init} zakończyło się sukcesem
-(\texttt{service\_completed\_successfully}). Zadanie to tworzy bucket na
-dokumenty z wyłączonym dostępem anonimowym. Opcja \texttt{--ignore-existing}
-sprawia, że można je bezpiecznie uruchamiać przy każdym starcie. Frontend
+są \emph{healthy}, a zadania \texttt{minio-init} i \texttt{migrate} zakończyły
+się sukcesem (\texttt{service\_completed\_successfully}). Pierwsze zadanie
+tworzy bucket na dokumenty z wyłączonym dostępem anonimowym, drugie stosuje
+brakujące migracje bazy danych. Oba można bezpiecznie uruchamiać przy każdym
+starcie: opcja \texttt{-{}-ignore-existing} pomija istniejący bucket, a
+\texttt{prisma migrate deploy} pomija zastosowane już migracje. Frontend
 czeka na zdrowy backend, a Grafana na Prometheusa. Fragment definicji
 backendu:
 
@@ -93,6 +103,7 @@ backend:
     postgres:   { condition: service_healthy }
     minio:      { condition: service_healthy }
     minio-init: { condition: service_completed_successfully }
+    migrate:    { condition: service_completed_successfully }
   healthcheck:
     test: ['CMD', 'wget', '-q', '-O', '/dev/null',
            'http://127.0.0.1:3000/health']

@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 2 – infrastruktura Docker.** Cały stos startuje w kontenerach; API i ekrany aplikacji powstają w kolejnych etapach.
+> Stan: **Etap 3 – fundament backendu.** Stos Docker, warstwy API, walidacja konfiguracji, logi z `requestId`, `/health` i `/health/ready`, Prisma z pierwszą migracją. Logowanie i dokumenty powstają w kolejnych etapach.
 
 ## Struktura
 
@@ -34,7 +34,7 @@ npm run docker:up         # docker compose up -d --build --wait
 | Usługa                 | Adres                                         |
 | ---------------------- | --------------------------------------------- |
 | Aplikacja (nginx)      | http://localhost:8090                         |
-| API przez nginx        | http://localhost:8090/api/health              |
+| API przez nginx        | http://localhost:8090/api/health/ready        |
 | Grafana                | http://localhost:3001 (hasło admina w `.env`) |
 | Prometheus             | http://127.0.0.1:9090                         |
 | Konsola MinIO          | http://127.0.0.1:9001                         |
@@ -59,7 +59,8 @@ npm run dev               # backend: http://localhost:3000, frontend: http://loc
 | `npm run lint`                                      | ESLint + kontrola formatowania Prettier                                                                                                      |
 | `npm run format`                                    | Formatowanie kodu Prettierem                                                                                                                 |
 | `npm run typecheck`                                 | Kontrola typów TypeScript we wszystkich pakietach                                                                                            |
-| `npm test`                                          | Testy Vitest we wszystkich pakietach                                                                                                         |
+| `npm test`                                          | Testy Vitest we wszystkich pakietach (backend wymaga `npm run test:infra:up`)                                                                |
+| `npm run db:migrate -w backend -- --name <zmiana>`  | Nowa migracja Prisma po zmianie `backend/prisma/schema.prisma`                                                                               |
 | `npm run test:e2e`                                  | Testy Playwright (przed pierwszym uruchomieniem: `npm run install:browsers -w e2e`)                                                          |
 | `npm run env:init`                                  | Tworzy `.env` z `.env.example` i generuje sekrety                                                                                            |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Start (z budowaniem, czeka na `healthy`), zatrzymanie i logi całego stosu                                                                    |

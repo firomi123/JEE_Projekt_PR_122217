@@ -7,3 +7,4 @@ test-results
 package-lock.json
 docs/sprawozdanie
 *.md
+backend/src/generated

@@ -1,4 +1,62 @@
 \subsection{Testy}
 \label{sec:testy}
 
-\douzupelnienia{strategia (najpierw testy funkcjonalne), narzędzia, przykładowe scenariusze, raport pokrycia, przykład naprawy błędu metodą test, potem poprawka; Etapy 3--12}
+\subsubsection{Strategia}
+
+Podstawą są \textbf{testy funkcjonalne}: sprawdzają zachowanie aplikacji przez
+jej publiczny interfejs, czyli żądania HTTP do API działającego na prawdziwej
+bazie PostgreSQL i prawdziwym magazynie MinIO, a później także scenariusze
+w przeglądarce. Weryfikowane jest to, co widzi klient: kod odpowiedzi, treść
+i nagłówki. \textbf{Testy jednostkowe} uzupełniają je tam, gdzie izolowana
+logika ma wiele przypadków brzegowych, np. walidacja konfiguracji czy
+mapowanie błędów na odpowiedzi. Błędy naprawiane są zawsze w tej samej
+kolejności: najpierw test, który odtwarza błąd i nie przechodzi, dopiero
+potem poprawka kodu.
+
+\subsubsection{Narzędzia i środowisko}
+
+Testy backendu uruchamia Vitest \cite{vitest}, a żądania HTTP wysyła do
+aplikacji biblioteka Supertest, bez otwierania portu sieciowego. Baza danych
+i MinIO dla testów pochodzą z pliku \texttt{docker-compose.test.yml}
+(podrozdział~\ref{sec:docker}) i uruchamia je polecenie
+\texttt{npm run test:infra:up}. Przed testami skrypt przygotowujący
+(\emph{global setup}) sprawdza, czy baza jest dostępna, i podpowiada, jak ją
+uruchomić, jeśli nie jest. Następnie stosuje wszystkie migracje
+(\texttt{prisma migrate deploy}). Przed każdym testem wszystkie tabele są
+opróżniane jednym poleceniem \texttt{TRUNCATE}, więc testy nie zależą od
+siebie nawzajem. Pliki testów wykonują się kolejno, bo korzystają ze wspólnej
+bazy.
+
+Pomocnicze funkcje testów budują aplikację dokładnie tak jak
+\texttt{server.ts}, ale pozwalają nadpisać wybrane zmienne środowiskowe.
+Dzięki temu da się sprawdzić zachowanie przy awarii zależności: wystarczy
+wskazać adres bazy danych lub MinIO na zamknięty port.
+
+\subsubsection{Zakres testów po Etapie 3}
+
+\begin{itemize}
+  \item \texttt{/health} i \texttt{/api/health} zwracają 200;
+  \item \texttt{/health/ready} zwraca 200, gdy działają baza i MinIO, oraz 503
+        ze wskazaniem niedziałającej zależności, gdy baza jest niedostępna,
+        MinIO jest niedostępne albo nie istnieje bucket; odpowiedź nie ujawnia
+        szczegółów błędu;
+  \item nieznana ścieżka zwraca 404 w jednolitym formacie; niepoprawny JSON
+        zwraca 400, a zbyt duże żądanie 413;
+  \item identyfikator żądania jest generowany albo przejmowany z nagłówka
+        \texttt{X-Request-Id}, jeśli ma poprawny format;
+  \item serwer uruchomiony z brakującą lub błędną konfiguracją kończy się
+        kodem~1 i wymienia wszystkie błędne zmienne, nie wypisując sekretów
+        (test uruchamia prawdziwy proces serwera);
+  \item testy jednostkowe walidacji konfiguracji (m.in. 10 rodzajów błędnych
+        wartości) i middleware'u obsługi błędów (w tym ukrywanie treści
+        nieoczekiwanych wyjątków).
+\end{itemize}
+
+Łącznie po Etapie 3 backend ma 40 testów. Żeby sprawdzić, czy testy faktycznie
+wykrywają błędy, celowo wprowadzono do kodu dwie usterki: readiness zawsze
+zwracał ,,gotowy'', a błąd 500 ujawniał treść wyjątku. Cztery testy od razu
+przestały przechodzić.
+
+\douzupelnienia{testy funkcjonalne kolejnych etapów, testy Playwright,
+raport pokrycia, przykład naprawy błędu metodą test, potem poprawka;
+Etapy 4--12}

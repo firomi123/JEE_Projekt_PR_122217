@@ -1,20 +1,17 @@
 import { Router } from 'express';
+import type { HealthController } from '../controllers/health.controller.js';
 
 /**
- * Creates the router with the liveness endpoint.
+ * Creates the router of the health endpoints:
+ * - `GET /` – liveness (process is up),
+ * - `GET /ready` – readiness (PostgreSQL and MinIO reachable).
  *
- * `GET /` responds `200 { "status": "ok" }` as long as the process can serve HTTP.
- * It deliberately checks no dependencies, so a database outage does not make Docker
- * restart a healthy API process. The readiness check (`/ready`, PostgreSQL and MinIO)
- * is added in Stage 3.
- *
+ * @param controller - Handlers for both endpoints.
  * @returns An Express router meant to be mounted at `/health` and `/api/health`.
- *   Has no side effects.
  */
-export function createHealthRouter(): Router {
+export function createHealthRouter(controller: HealthController): Router {
   const router = Router();
-  router.get('/', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
+  router.get('/', controller.liveness);
+  router.get('/ready', controller.readiness);
   return router;
 }

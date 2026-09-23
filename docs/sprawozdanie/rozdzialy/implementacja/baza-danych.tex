@@ -1,4 +1,56 @@
 \subsection{Baza danych}
 \label{sec:baza-danych}
 
-\douzupelnienia{diagram ERD, modele i migracje; Etapy 3--6}
+Dane aplikacji są przechowywane w bazie PostgreSQL 16 \cite{postgresql},
+a dostęp do nich zapewnia Prisma ORM w wersji 7 \cite{prisma}. Schemat bazy
+jest zdefiniowany w jednym pliku \path{backend/prisma/schema.prisma}.
+Na jego podstawie Prisma generuje klienta z typami TypeScript, więc zapytania
+do nieistniejących kolumn i błędy typów wykrywa już kompilator. Prisma 7 nie
+korzysta z osobnego silnika zapytań; łączy się z bazą przez sterownik
+\texttt{pg} (adapter \texttt{@prisma/adapter-pg}), z limitem 5~sekund na
+nawiązanie połączenia.
+
+\subsubsection{Migracje}
+
+Każda zmiana schematu jest zapisywana jako migracja SQL w katalogu
+\path{backend/prisma/migrations/} i wersjonowana w repozytorium razem
+z kodem. Programista tworzy migrację poleceniem
+\verb|npm run db:migrate -w backend -- --name <nazwa>|. W środowisku Docker
+migracje stosuje jednorazowa usługa \texttt{migrate}
+(\texttt{prisma migrate deploy}), która uruchamia się, gdy baza danych jest
+gotowa, a backend startuje dopiero po jej poprawnym zakończeniu. Obraz tej
+usługi powstaje z etapu budowania, bo tylko on zawiera narzędzie wiersza
+poleceń Prisma. Obraz produkcyjny backendu go nie zawiera.
+
+\subsubsection{Model danych}
+
+Pierwsza migracja (\texttt{init}) tworzy tabelę \texttt{users} z kontami
+użytkowników (tabela~\ref{tab:users}). Identyfikatory są typu UUID, więc nie
+da się ich odgadnąć, a to ma znaczenie przy adresach dokumentów w API.
+
+\begin{table}[htbp]
+\centering
+\caption{Tabela \texttt{users}}
+\label{tab:users}
+\small
+\begin{tabular}{|l|l|p{0.45\textwidth}|}
+\hline
+\textbf{Kolumna} & \textbf{Typ} & \textbf{Opis} \\
+\hline
+\texttt{id} & \texttt{UUID} & Klucz główny \\
+\hline
+\texttt{username} & \texttt{VARCHAR(30)} & Login, unikalny \\
+\hline
+\texttt{email} & \texttt{VARCHAR(254)} & Adres e-mail, unikalny \\
+\hline
+\texttt{password\_hash} & \texttt{TEXT} & Skrót hasła (argon2), nigdy samo hasło \\
+\hline
+\texttt{created\_at} & \texttt{TIMESTAMPTZ} & Data utworzenia konta \\
+\hline
+\texttt{updated\_at} & \texttt{TIMESTAMPTZ} & Data ostatniej zmiany \\
+\hline
+\end{tabular}
+\end{table}
+
+\douzupelnienia{diagram ERD i tabele profilu kierowcy, dokumentów, wersji
+i historii zmian; Etapy 5--6}

@@ -1,5 +1,5 @@
 @startuml kontenery
-' Diagram kontenerów (model C4) – Aplikacja kierowcy, Etap 2
+' Diagram kontenerów (model C4) – Aplikacja kierowcy
 !include <C4/C4_Container>
 skinparam dpi 200
 LAYOUT_TOP_DOWN()
@@ -14,6 +14,7 @@ System_Boundary(system, "Aplikacja kierowcy (Docker Compose)") {
   ContainerDb(postgres, "postgres", "PostgreSQL 16", "Użytkownicy, dokumenty, wersje, historia")
   ContainerDb(minio, "minio", "MinIO (S3)", "Zaszyfrowane pliki dokumentów")
   Container(minioinit, "minio-init", "MinIO Client", "Jednorazowo tworzy bucket")
+  Container(migrate, "migrate", "Prisma CLI", "Jednorazowo stosuje migracje")
   Container(prometheus, "prometheus", "Prometheus", "Zbiera metryki")
   Container(grafana, "grafana", "Grafana", "Dashboardy")
 }
@@ -22,7 +23,8 @@ Rel(kierowca, frontend, "HTTP", ":8090")
 Rel(frontend, backend, "HTTP /api/*", "sieć app")
 Rel(backend, postgres, "SQL", "sieć data")
 Rel(backend, minio, "S3 API", "sieć data")
-Rel_L(minioinit, minio, "mc mb", "sieć data")
+Rel_U(minioinit, minio, "mc mb", "sieć data")
+Rel_L(migrate, postgres, "migrate deploy", "sieć data")
 Rel(prometheus, backend, "GET /metrics", "sieć monitoring")
 Rel(grafana, prometheus, "PromQL", "sieć monitoring")
 Rel(admin, grafana, "HTTP", ":3001")

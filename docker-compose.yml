@@ -70,6 +70,21 @@ services:
         mc anonymous set none "local/$$S3_BUCKET"
     networks: [data]
 
+  # One-shot job: applies pending Prisma migrations, then exits with code 0.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: migrate
+    image: driver-docs/backend-migrate:local
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    networks: [data]
+
   backend:
     <<: *restart
     build:
@@ -84,6 +99,8 @@ services:
       minio:
         condition: service_healthy
       minio-init:
+        condition: service_completed_successfully
+      migrate:
         condition: service_completed_successfully
     environment:
       NODE_ENV: production
