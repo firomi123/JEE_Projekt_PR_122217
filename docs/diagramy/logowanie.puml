@@ -1,0 +1,36 @@
+@startuml logowanie
+' Sekwencja logowania i użycia tokenu JWT
+skinparam dpi 200
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+autonumber
+
+actor "Kierowca" as K
+participant "Frontend\n(React)" as F
+participant "nginx" as N
+participant "Backend\n(Express)" as B
+database "PostgreSQL" as DB
+
+K -> F : login i hasło
+F -> N : POST /api/auth/login
+N -> B : POST /api/auth/login\n(X-Forwarded-For)
+B -> B : limit nieudanych prób\n(IP klienta)
+B -> B : walidacja (loginSchema)
+B -> DB : SELECT user WHERE username
+DB --> B : użytkownik z password_hash
+B -> B : argon2.verify(hash, hasło)
+alt poprawne dane
+  B -> B : podpis JWT (HS256)\nsub = id, exp = 1 h
+  B --> F : 200 { accessToken, user }
+  F -> F : zapamiętanie tokenu
+else zły login lub hasło
+  B --> F : 401 INVALID_CREDENTIALS
+end
+
+== Kolejne żądania ==
+F -> N : GET /api/auth/me\nAuthorization: Bearer <JWT>
+N -> B : GET /api/auth/me
+B -> B : requireAuth: weryfikacja podpisu,\nalgorytmu, iss, aud, exp
+B -> DB : SELECT user WHERE id = sub
+B --> F : 200 { user }
+@enduml

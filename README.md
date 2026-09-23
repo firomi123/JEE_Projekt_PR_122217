@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 3 – fundament backendu.** Stos Docker, warstwy API, walidacja konfiguracji, logi z `requestId`, `/health` i `/health/ready`, Prisma z pierwszą migracją. Logowanie i dokumenty powstają w kolejnych etapach.
+> Stan: **Etap 4 – rejestracja i logowanie.** API: rejestracja z walidacją, logowanie (JWT, limit nieudanych prób), `/api/auth/me`, dokumentacja OpenAPI. Profil, dokumenty i interfejs powstają w kolejnych etapach.
 
 ## Struktura
 
@@ -35,6 +35,7 @@ npm run docker:up         # docker compose up -d --build --wait
 | ---------------------- | --------------------------------------------- |
 | Aplikacja (nginx)      | http://localhost:8090                         |
 | API przez nginx        | http://localhost:8090/api/health/ready        |
+| Dokumentacja API       | http://localhost:8090/api/docs                |
 | Grafana                | http://localhost:3001 (hasło admina w `.env`) |
 | Prometheus             | http://127.0.0.1:9090                         |
 | Konsola MinIO          | http://127.0.0.1:9001                         |

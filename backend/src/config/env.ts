@@ -20,6 +20,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  // Number of reverse proxies in front of the API whose X-Forwarded-For is trusted
+  // (1 behind the frontend nginx in Docker, 0 when the API is reached directly).
+  TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+  // Failed logins allowed per client IP within a 15-minute window.
+  LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, 'must be a postgresql:// connection string'),
@@ -43,6 +48,10 @@ export interface Config {
   nodeEnv: 'development' | 'production' | 'test';
   port: number;
   logLevel: (typeof LOG_LEVELS)[number];
+  /** Trusted reverse-proxy hops (Express `trust proxy`). */
+  trustProxy: number;
+  /** Failed logins allowed per IP per 15 minutes. */
+  loginRateLimitMax: number;
   databaseUrl: string;
   s3: {
     endpoint: string;
@@ -97,6 +106,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     nodeEnv: e.NODE_ENV,
     port: e.PORT,
     logLevel: e.LOG_LEVEL,
+    trustProxy: e.TRUST_PROXY,
+    loginRateLimitMax: e.LOGIN_RATE_LIMIT_MAX,
     databaseUrl: e.DATABASE_URL,
     s3: {
       endpoint: e.S3_ENDPOINT,

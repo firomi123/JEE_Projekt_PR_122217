@@ -5,3 +5,4 @@
  * (validation schemas, enums, DTO types), so both sides share one definition.
  */
 export { APP_NAME, APP_SHORT_NAME } from './app.js';
+export * from './auth.js';

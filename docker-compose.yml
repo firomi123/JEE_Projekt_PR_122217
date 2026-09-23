@@ -106,6 +106,9 @@ services:
       NODE_ENV: production
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # One trusted proxy hop: the frontend nginx sets X-Forwarded-For.
+      TRUST_PROXY: 1
+      LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ${S3_BUCKET:-documents}

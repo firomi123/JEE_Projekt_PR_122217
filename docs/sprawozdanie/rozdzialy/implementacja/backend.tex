@@ -76,11 +76,21 @@ potrzebują bloków \texttt{try/catch}.
 \hline
 \texttt{INVALID\_JSON} & 400 & Treść żądania nie jest poprawnym JSON-em \\
 \hline
+\texttt{UNAUTHORIZED} & 401 & Brak lub niepoprawny token dostępu \\
+\hline
+\texttt{TOKEN\_EXPIRED} & 401 & Token dostępu wygasł \\
+\hline
+\texttt{INVALID\_CREDENTIALS} & 401 & Zły login lub hasło \\
+\hline
 \texttt{FORBIDDEN} & 403 & Brak uprawnień do operacji (\texttt{ForbiddenError}) \\
 \hline
 \texttt{NOT\_FOUND} & 404 & Nieznana ścieżka lub zasób (\texttt{NotFoundError}) \\
 \hline
+\texttt{CONFLICT} & 409 & Dane kolidują z istniejącymi, np. zajęty login (\texttt{ConflictError}) \\
+\hline
 \texttt{PAYLOAD\_TOO\_LARGE} & 413 & Treść JSON większa niż 1~MB \\
+\hline
+\texttt{TOO\_MANY\_REQUESTS} & 429 & Przekroczony limit nieudanych logowań \\
 \hline
 \texttt{INTERNAL\_ERROR} & 500 & Nieoczekiwany błąd serwera \\
 \hline
@@ -135,9 +145,88 @@ GET & \texttt{/health}, \texttt{/api/health} & Liveness -- proces działa \\
 \hline
 GET & \texttt{/health/ready}, \texttt{/api/health/ready} & Readiness -- baza danych i MinIO dostępne \\
 \hline
+POST & \texttt{/api/auth/register} & Rejestracja konta \\
+\hline
+POST & \texttt{/api/auth/login} & Logowanie, zwraca token JWT \\
+\hline
+GET & \texttt{/api/auth/me} & Dane zalogowanego użytkownika (wymaga tokenu) \\
+\hline
+GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
+\hline
 \end{tabular}
 \end{table}
 
-\douzupelnienia{endpointy uwierzytelniania, profilu i dokumentów,
-szyfrowanie kopertowe (diagram sekwencji uploadu), wersjonowanie, autoryzacja;
-Etapy 4--6}
+\subsubsection{Rejestracja i logowanie}
+
+Reguły formularza rejestracji są zapisane raz, jako schemat Zod we wspólnym
+pakiecie \texttt{shared}. Ten sam schemat sprawdza dane w API i (od Etapu~7)
+w formularzu w przeglądarce, więc obie strony nie mogą się rozjechać.
+Wymagania to: login 3--30 znaków złożony z liter, cyfr i podkreślenia; poprawny
+adres e-mail; hasło o długości 8--128 znaków z wielką literą, cyfrą i znakiem
+specjalnym oraz identyczne potwierdzenie hasła. Komunikaty są po polsku, bo
+wyświetla je interfejs. Login i adres e-mail są zamieniane na małe litery,
+dlatego \texttt{Jan\_K} i \texttt{jan\_k} to to samo konto. Górny limit długości
+hasła chroni serwer przed kosztownym haszowaniem bardzo długich danych.
+
+Rejestracja (\texttt{POST /api/auth/register}) najpierw sprawdza, czy login lub
+e-mail nie są zajęte. Jeśli są, zwraca 409 \texttt{CONFLICT} z listą zajętych
+pól w \texttt{details}, więc formularz może pokazać komunikat przy właściwym
+polu. Hasło jest zapisywane wyłącznie jako skrót algorytmem argon2id (64~MiB
+pamięci, 3~iteracje, losowa sól), rekomendowanym do przechowywania haseł
+\cite{owasp_passwords}. Gdy dwie rejestracje tego samego loginu wystąpią
+jednocześnie, rozstrzyga ograniczenie unikalności w bazie danych, a przegrana
+rejestracja również dostaje 409.
+
+Przebieg logowania przedstawia rysunek~\ref{fig:logowanie}. Po poprawnym
+sprawdzeniu hasła serwer wystawia token JWT \cite{rfc7519} podpisany algorytmem
+HS256 z kluczem \texttt{JWT\_SECRET}. Token zawiera identyfikator użytkownika
+(\texttt{sub}), wystawcę (\texttt{iss}), odbiorcę (\texttt{aud}) i czas
+wygaśnięcia (\texttt{exp}, domyślnie 1~godzina). Zły login i złe hasło dają
+identyczną odpowiedź 401 \texttt{INVALID\_CREDENTIALS}. Dla nieistniejącego
+loginu serwer i tak wykonuje weryfikację argon2 na fikcyjnym skrócie, więc
+także po czasie odpowiedzi nie da się ustalić, które loginy istnieją.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{diagramy/logowanie.png}
+\caption{Sekwencja logowania i użycia tokenu JWT}
+\label{fig:logowanie}
+\end{figure}
+
+Chronione endpointy przechodzą przez middleware \texttt{requireAuth}. Oczekuje
+on nagłówka \texttt{Authorization: Bearer <token>} i weryfikuje podpis,
+dopuszczalny algorytm (wyłącznie HS256, co wyklucza m.in. niepodpisane tokeny
+\texttt{alg: none}), wystawcę, odbiorcę i czas ważności. Wygasły token daje kod
+\texttt{TOKEN\_EXPIRED}, każdy inny problem kod \texttt{UNAUTHORIZED}.
+Endpoint \texttt{/api/auth/me} dodatkowo sprawdza, czy konto nadal istnieje.
+
+\subsubsection{Ochrona przed zgadywaniem haseł}
+
+Endpoint logowania ma limit nieudanych prób (biblioteka
+\texttt{express-rate-limit}): domyślnie 10 nieudanych prób z jednego adresu IP
+w ciągu 15 minut. Udane logowania nie są wliczane, więc limit nie przeszkadza
+użytkownikowi, który podaje poprawne hasło. Po przekroczeniu limitu każda
+kolejna próba, nawet z poprawnym hasłem, dostaje 429
+\texttt{TOO\_MANY\_REQUESTS} z nagłówkiem \texttt{Retry-After}, a zdarzenie jest
+zapisywane w logu. W Dockerze żądania przechodzą przez nginx, więc backend
+ufa jednemu serwerowi pośredniczącemu (\texttt{TRUST\_PROXY=1}) i odczytuje
+adres klienta z nagłówka \texttt{X-Forwarded-For}. Bez tego wszyscy
+użytkownicy mieliby adres nginx i dzieliliby jeden limit. Liczniki są
+przechowywane w pamięci procesu, co wystarcza przy jednej instancji API.
+
+\subsubsection{Dokumentacja API}
+
+Specyfikacja API w formacie OpenAPI 3.0 jest dostępna pod adresem
+\path{/api/docs/openapi.json}, a interaktywna dokumentacja Swagger UI pod
+\texttt{/api/docs}. Można w niej wykonać żądania, także z tokenem JWT
+(przycisk \emph{Authorize}). Schematy treści żądań są generowane automatycznie
+z tych samych schematów Zod, które sprawdzają dane
+(\texttt{z.toJSONSchema}), więc dokumentacja zawsze opisuje faktycznie
+stosowane reguły. Test funkcjonalny sprawdza, czy specyfikacja zawiera
+dokładnie oczekiwaną listę endpointów. Dodanie endpointu wymaga więc
+uzupełnienia tej listy w teście, co przypomina o dopisaniu go do
+dokumentacji.
+
+\douzupelnienia{endpointy profilu i dokumentów, szyfrowanie kopertowe
+(diagram sekwencji uploadu), wersjonowanie, autoryzacja dostępu do dokumentów;
+Etapy 5--6}

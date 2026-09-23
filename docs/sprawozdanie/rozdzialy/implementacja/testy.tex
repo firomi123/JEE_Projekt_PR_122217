@@ -52,11 +52,53 @@ wskazać adres bazy danych lub MinIO na zamknięty port.
         nieoczekiwanych wyjątków).
 \end{itemize}
 
-Łącznie po Etapie 3 backend ma 40 testów. Żeby sprawdzić, czy testy faktycznie
+Po Etapie 3 backend miał 40 testów. Żeby sprawdzić, czy testy faktycznie
 wykrywają błędy, celowo wprowadzono do kodu dwie usterki: readiness zawsze
 zwracał ,,gotowy'', a błąd 500 ujawniał treść wyjątku. Cztery testy od razu
 przestały przechodzić.
 
+\subsubsection{Testy rejestracji i logowania}
+
+Etap 4 dodał 28 testów funkcjonalnych API oraz 37 testów jednostkowych
+schematów walidacji we wspólnym pakiecie:
+
+\begin{itemize}
+  \item rejestracja: poprawne konto (201, odpowiedź bez hasła, w bazie tylko
+        skrót argon2id), zamiana loginu i e-maila na małe litery, zajęty login
+        lub e-mail niezależnie od wielkości liter (409 z właściwym polem
+        w \texttt{details}), niepoprawne i puste dane (400 ze szczegółami
+        wszystkich pól, bez zapisu do bazy);
+  \item logowanie: token z \texttt{sub} równym identyfikatorowi użytkownika
+        i czasem życia 1~godziny, zły login i złe hasło dają identyczną
+        odpowiedź 401, brak pól daje 400;
+  \item limit prób: po przekroczeniu limitu nieudanych prób kolejna próba
+        (nawet z poprawnym hasłem) dostaje 429 z \texttt{Retry-After};
+        udane logowania nie są wliczane do limitu;
+  \item \texttt{/api/auth/me}: 200 z ważnym tokenem; 401 bez tokenu, dla innego
+        schematu niż Bearer, dla tokenu uszkodzonego, podpisanego innym
+        kluczem, wygasłego (kod \texttt{TOKEN\_EXPIRED}), z obcym wystawcą lub
+        odbiorcą, niepodpisanego (\texttt{alg: none}) oraz gdy konto usunięto;
+  \item dokumentacja: specyfikacja OpenAPI zawiera wszystkie endpointy, a reguły
+        rejestracji zgadzają się ze schematem Zod;
+  \item testy jednostkowe schematów: wartości graniczne długości loginu
+        (2, 3, 30, 31 znaków) i hasła (7, 8, 128, 129), niedozwolone znaki
+        w loginie, każda brakująca klasa znaków w haśle, polskie litery w haśle,
+        niezgodne potwierdzenie hasła.
+\end{itemize}
+
+Testy tokenów tworzą niepoprawne tokeny (wygasłe, podpisane innym kluczem,
+niepodpisane) bezpośrednio w teście, bez pomocy API, bo tylko tak da się
+sprawdzić, że serwer je odrzuca. Pomocnicza funkcja \texttt{loginAs} tworzy
+użytkownika i loguje go przez API tak jak prawdziwy klient, a następnie zwraca
+gotowy nagłówek \texttt{Authorization}. Będą z niej korzystać testy kolejnych
+etapów.
+
+Skuteczność testów ponownie sprawdzono, wprowadzając celowo cztery usterki:
+inny komunikat dla nieistniejącego loginu, brak sprawdzania wystawcy tokenu,
+wliczanie udanych logowań do limitu i brak zamiany loginu na małe litery.
+Każdą z nich wykryły testy (od jednego do dwóch nieprzechodzących testów na
+usterkę).
+
 \douzupelnienia{testy funkcjonalne kolejnych etapów, testy Playwright,
 raport pokrycia, przykład naprawy błędu metodą test, potem poprawka;
-Etapy 4--12}
+Etapy 5--12}

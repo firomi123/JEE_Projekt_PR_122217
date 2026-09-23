@@ -63,6 +63,43 @@ export class NotFoundError extends AppError {
   }
 }
 
+/**
+ * 401 – the request is not authenticated: missing, invalid or expired token, or
+ * wrong login credentials.
+ */
+export class UnauthorizedError extends AppError {
+  /**
+   * @param message - Description for developers.
+   * @param code - `UNAUTHORIZED` (default), `TOKEN_EXPIRED` or `INVALID_CREDENTIALS`.
+   */
+  constructor(
+    message = 'Authentication required',
+    code: 'UNAUTHORIZED' | 'TOKEN_EXPIRED' | 'INVALID_CREDENTIALS' = 'UNAUTHORIZED',
+  ) {
+    super(401, code, message);
+  }
+}
+
+/** 409 – the request conflicts with existing data (e.g. a taken username). */
+export class ConflictError extends AppError {
+  /**
+   * @param issues - The conflicting fields, returned in `error.details` so a form can
+   *   show the message next to the right input.
+   * @param message - Overall description for developers.
+   */
+  constructor(issues: FieldIssue[], message = 'Resource already exists') {
+    super(409, 'CONFLICT', message, issues);
+  }
+}
+
+/** 429 – too many requests (rate limit exceeded). */
+export class TooManyRequestsError extends AppError {
+  /** @param message - Description for developers. */
+  constructor(message = 'Too many requests, try again later') {
+    super(429, 'TOO_MANY_REQUESTS', message);
+  }
+}
+
 /** 403 – the user is authenticated but not allowed to perform the action. */
 export class ForbiddenError extends AppError {
   /** @param message - Description of the refused action. */
