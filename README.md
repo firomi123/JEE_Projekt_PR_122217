@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 8 – dokumenty w interfejsie (lista, dodawanie, szczegóły, wersje, statusy, profil).** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
+> Stan: **Etap 9 – zdjęcie dokumentu aparatem, kadrowanie i kompresja.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
 
 ## Struktura
 
@@ -50,6 +50,19 @@ npm install
 npm run env:init          # jeśli nie ma jeszcze .env
 npm run dev               # backend: http://localhost:3000, frontend: http://localhost:5173 (proxy /api)
 ```
+
+## Test na telefonie z Androidem (aparat)
+
+Aparat (`getUserMedia`) działa tylko w bezpiecznym kontekście – HTTPS albo `localhost`. Telefon podłączony przez USB (debugowanie USB włączone) otwiera aplikację jako `localhost` dzięki przekierowaniu portu:
+
+```bash
+adb devices -l                                   # telefon widoczny i autoryzowany
+adb reverse tcp:8090 tcp:8090                    # stos Docker (nginx)
+adb shell am start -a android.intent.action.VIEW -d http://localhost:8090
+adb exec-out screencap -p > ekran.png            # zrzut ekranu
+```
+
+Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komputerze.
 
 ## Polecenia
 

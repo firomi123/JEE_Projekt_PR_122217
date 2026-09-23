@@ -110,5 +110,75 @@ telefonu bez spacji. Pola mają atrybuty \texttt{autocomplete} i
 \texttt{inputmode} (np. klawiatura numeryczna dla telefonu), co ułatwia
 wypełnianie na telefonie.
 
-\douzupelnienia{obsługa aparatu, kadrowanie i kompresja (rozmiar przed i po),
-PWA, zrzuty ekranu z telefonu; Etapy 9--10}
+\subsubsection{Zdjęcie dokumentu aparatem}
+
+Przebieg od zdjęcia do zapisu dokumentu przedstawia rysunek~\ref{fig:zdjecie}.
+Pole pliku w formularzu dokumentu (i w formularzu nowej wersji) ma przycisk
+,,Zrób zdjęcie'', który otwiera pełnoekranowy widok aparatu.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{diagramy/zdjecie.png}
+\caption{Przepływ zdjęcia: aparat, kadrowanie, kompresja, wysłanie}
+\label{fig:zdjecie}
+\end{figure}
+
+\paragraph{Aparat.} Hook \texttt{useCamera} uruchamia strumień wideo
+funkcją \path{navigator.mediaDevices.getUserMedia} \cite{mdn_getusermedia}
+z ograniczeniem \texttt{facingMode: environment} (tylny aparat telefonu)
+i preferowaną rozdzielczością Full HD, a następnie podłącza go do elementu
+\texttt{<video>}. Duży okrągły przycisk migawki kopiuje bieżącą klatkę na
+\texttt{canvas} i zapisuje ją jako JPEG w pełnej rozdzielczości aparatu;
+kompresja następuje dopiero po kadrowaniu. Przy wyjściu z widoku aparatu
+wszystkie ścieżki strumienia są zatrzymywane, więc aparat (i jego lampka)
+wyłącza się od razu. \texttt{getUserMedia} działa tylko w bezpiecznym
+kontekście (HTTPS albo \texttt{localhost}). Gdy funkcja jest niedostępna,
+użytkownik odmówił dostępu albo urządzenie nie ma aparatu, aplikacja wyjaśnia
+przyczynę i oferuje zapasowe pole wyboru pliku, które na telefonie otwiera
+systemową aplikację aparatu lub galerię:
+
+\begin{small}
+\begin{verbatim}
+<input type="file" accept="image/*" capture="environment">
+\end{verbatim}
+\end{small}
+
+\paragraph{Kadrowanie.} Zdjęcie trafia do edytora opartego na bibliotece
+react-easy-crop: obszar kadru przesuwa się palcem, powiększa gestem
+,,szczypania'' albo suwakiem, a przycisk ,,Obróć o 90°'' obraca zdjęcie.
+Biblioteka podaje obszar kadru we współrzędnych obróconego obrazu, dlatego
+obraz jest najpierw rysowany obrócony na płótnie o rozmiarze obróconego
+prostokąta, a dopiero potem wycinany jest wybrany fragment.
+
+\paragraph{Kompresja.} Wykadrowane zdjęcie jest skalowane tak, by dłuższy bok
+miał najwyżej 2000~pikseli (z zachowaniem proporcji, bez powiększania
+mniejszych zdjęć), i kodowane jako JPEG o jakości 0,8. Jeśli plik przekracza
+1~MB, jakość jest obniżana o 0,1, ale nie poniżej 0,5. Taką samą kompresję
+przechodzą duże zdjęcia JPG i PNG wybrane z galerii telefonu. Limit 10~MB jest
+sprawdzany dopiero po kompresji, bo zdjęcie z nowoczesnego telefonu bywa
+większe, a po kompresji mieści się w nim z zapasem. Pliki PDF są wysyłane bez
+zmian. Formularz pokazuje rozmiar przed kompresją i po niej. Wyniki pomiaru
+dla typowych zdjęć 12~Mpx zawiera tabela~\ref{tab:kompresja}.
+
+\begin{table}[htbp]
+\centering
+\caption{Kompresja zdjęć przed wysłaniem (pomiar w przeglądarce Chromium)}
+\label{tab:kompresja}
+\small
+\begin{tabular}{|l|r|l|r|}
+\hline
+\textbf{Zdjęcie wejściowe} & \textbf{Rozmiar} & \textbf{Po kompresji} & \textbf{Rozmiar} \\
+\hline
+4000 × 3000 px (poziome) & 3,7 MB & 2000 × 1500 px & 778 kB \\
+\hline
+3024 × 4032 px (pionowe) & 3,7 MB & 1500 × 2000 px & 708 kB \\
+\hline
+\end{tabular}
+\end{table}
+
+Obliczenia niezależne od przeglądarki (rozmiar po skalowaniu, rozmiar po
+obrocie, kolejne poziomy jakości, decyzja, czy kompresować) są wydzielone do
+modułu \texttt{image-math.ts} i pokryte testami jednostkowymi. Operacje na
+płótnie są sprawdzane testami Playwright w prawdziwej przeglądarce.
+
+\douzupelnienia{PWA, zrzuty ekranu z telefonu; Etap 10}

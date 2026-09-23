@@ -1,0 +1,26 @@
+@startuml zdjecie
+' Przepływ zdjęcia dokumentu: aparat -> kadrowanie -> kompresja -> API
+skinparam dpi 200
+skinparam shadowing false
+
+start
+:Kierowca: „Zrób zdjęcie”;
+if (getUserMedia dostępne\ni zgoda na aparat?) then (tak)
+  :Podgląd tylnego aparatu na żywo\n(facingMode: environment);
+  :Klatka z <video> → canvas → JPEG (jakość 0,95);
+else (nie)
+  :Komunikat o przyczynie\n(brak zgody / brak aparatu);
+  :<input type="file" accept="image/*"\ncapture="environment">\n(aparat systemowy lub galeria);
+endif
+:Kadrowanie z uchwytami dotykowymi,\nobrót o 90°, powiększenie\n(react-easy-crop);
+:Obrót i wycięcie obszaru na canvas;
+:Skalowanie: dłuższy bok ≤ 2000 px;
+:JPEG jakość 0,8;
+while (plik > 1 MB i jakość > 0,5?) is (tak)
+  :jakość − 0,1;
+endwhile (nie)
+:Formularz dokumentu\n(rozmiar przed i po kompresji);
+:POST /api/documents (multipart);
+:Serwer: kontrola formatu i rozmiaru,\nszyfrowanie, zapis w MinIO;
+stop
+@enduml

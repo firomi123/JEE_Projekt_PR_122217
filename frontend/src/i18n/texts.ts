@@ -126,6 +126,28 @@ export const T = {
     submitting: 'Zapisywanie…',
     saved: 'Profil zapisany.',
   },
+  camera: {
+    dialog: 'Aparat',
+    open: 'Zrób zdjęcie',
+    shutter: 'Wykonaj zdjęcie',
+    close: 'Zamknij aparat',
+    starting: 'Uruchamianie aparatu…',
+    denied:
+      'Brak dostępu do aparatu. Zezwól na użycie aparatu w ustawieniach przeglądarki albo wybierz zdjęcie poniżej.',
+    unavailable:
+      'Aparat nie jest dostępny w przeglądarce. Wybierz zdjęcie z urządzenia lub zrób je aplikacją aparatu.',
+    error: 'Nie udało się uruchomić aparatu. Wybierz zdjęcie z urządzenia.',
+    fallback: 'Wybierz lub zrób zdjęcie',
+    editorTitle: 'Kadrowanie zdjęcia',
+    rotate: 'Obróć o 90°',
+    zoom: 'Powiększenie',
+    use: 'Użyj zdjęcia',
+    retake: 'Zrób ponownie',
+    processing: 'Przetwarzanie zdjęcia…',
+    processingError: 'Nie udało się przetworzyć zdjęcia. Spróbuj ponownie.',
+    compressed: (before: string, after: string, width: number, height: number) =>
+      `Zdjęcie zmniejszone: ${before} → ${after} (${width}×${height} px)`,
+  },
   notFound: {
     title: 'Nie znaleziono strony',
     goHome: 'Przejdź do dokumentów',

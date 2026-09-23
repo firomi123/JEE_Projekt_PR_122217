@@ -14,10 +14,11 @@ export default defineConfig({
   testDir: './tests',
   globalSetup: externalBaseUrl ? undefined : './global-setup.ts',
   fullyParallel: true,
-  // Two workers: every registration and login costs an argon2id hash (64 MiB,
-  // 3 passes) on the same machine that runs the browsers, the backend and the
-  // databases; more parallel browsers only made the first tests time out.
-  workers: 2,
+  // One worker: every registration and login costs an argon2id hash (64 MiB,
+  // 3 passes), and the camera tests decode and compress 12-megapixel photos, all
+  // on the same machine that runs the browsers, the backend and the databases.
+  // Parallel browsers made tests time out; serial runs are slower but stable.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   // One retry: a test that passes only on the second attempt is reported as "flaky".
   retries: process.env.CI ? 2 : 1,

@@ -266,5 +266,59 @@ z zakładki lub z ikony PWA). Testy funkcjonalne backendu nie mogły go wykryć,
 bo backend działał poprawnie. Wykryły go dopiero testy interfejsu w
 przeglądarce.
 
-\douzupelnienia{testy Playwright kolejnych etapów, raport pokrycia;
-Etapy 9--12}
+\subsubsection{Testy aparatu}
+
+Chromium jest uruchamiany z flagami, które dają syntetyczny obraz z kamery
+i automatyczną zgodę na dostęp do niej:
+
+\begin{small}
+\begin{verbatim}
+--use-fake-device-for-media-stream
+--use-fake-ui-for-media-stream
+\end{verbatim}
+\end{small}
+
+\noindent Scenariusze Etapu 9:
+\begin{itemize}
+  \item zdjęcie z aparatu: podgląd na żywo, wykonanie zdjęcia, obrót,
+        zatwierdzenie, zapis dokumentu; przez API sprawdzane jest, że zapisany
+        plik jest JPEG-iem mniejszym niż 1~MB;
+  \item zamknięcie widoku aparatu zatrzymuje strumień (ścieżka wideo przechodzi
+        w stan \texttt{ended});
+  \item odmowa dostępu do aparatu, zasymulowana podmienioną funkcją
+        \texttt{getUserMedia}, która zgłasza błąd \texttt{NotAllowedError}: komunikat i pole zapasowe z atrybutem
+        \texttt{capture="environment"}, z którego zdjęcie trafia do edytora;
+  \item brak interfejsu \texttt{mediaDevices} (jak w niezabezpieczonym
+        kontekście): komunikat i pole zapasowe;
+  \item duże zdjęcie z galerii (4000~×~3000~px, ponad 1~MB) jest zmniejszane do
+        2000~×~1500~px, a zapisany plik jest mniejszy niż 1~MB i mniejszy od
+        oryginału.
+\end{itemize}
+
+\paragraph{Błąd wykryty testem.} Test sprawdzający, że zamknięcie aparatu
+zatrzymuje strumień, nie przeszedł z nieoczekiwanego powodu: jeszcze przed
+zamknięciem strumień miał zero aktywnych ścieżek, bo aparat wyłączał się
+zaraz po uruchomieniu. Przyczyną był efekt w hooku \texttt{useCamera},
+zależny od stanu aparatu. Zmiana stanu z ,,uruchamianie'' na ,,na żywo''
+wywoływała sprzątanie poprzedniego efektu, które zatrzymywało strumień.
+Pierwszy test aparatu przechodził mimo to, bo element \texttt{<video>}
+zachował ostatnią klatkę. Użytkownik zobaczyłby jednak zamrożony obraz.
+Po poprawce (efekt uruchamiany raz przy wyświetleniu widoku, sprzątanie
+tylko przy jego zamknięciu) oba testy przechodzą. Na tym samym przykładzie
+widać, że test sprawdzający sprzątanie zasobów wykrył też błąd w samym
+uruchamianiu.
+
+\paragraph{Stabilność.} Testy aparatu dekodują i kompresują zdjęcia
+12~Mpx, co przy dwóch równoległych przeglądarkach na obciążonym komputerze
+znowu wydłużało czas ponad limity. Testy uruchamiane są więc kolejno (jedna
+przeglądarka). Paradoksalnie cały zestaw 26 scenariuszy wykonuje się wtedy
+szybciej (ok. 1,7~min) niż równolegle, bo przeglądarki nie konkurują o procesor
+z haszowaniem argon2.
+
+\paragraph{Test ręczny na telefonie.} Plan przewiduje sprawdzenie aparatu na
+prawdziwym telefonie z systemem Android podłączonym przez ADB
+(\texttt{adb reverse} przekierowuje port aplikacji, dzięki czemu telefon
+otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
+\douzupelnienia{wynik testu na telefonie i zrzuty ekranu każdego kroku}
+
+\douzupelnienia{testy kolejnych etapów, raport pokrycia; Etapy 10--12}

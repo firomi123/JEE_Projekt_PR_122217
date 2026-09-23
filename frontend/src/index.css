@@ -405,6 +405,108 @@ h2 {
   font-weight: 700;
 }
 
+/* ---------- Camera and photo editor ---------- */
+
+.button--secondary {
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.camera {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: #fff;
+}
+
+.camera__video {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  object-fit: contain;
+  background: #000;
+}
+
+.camera__status {
+  position: absolute;
+  top: 45%;
+  width: 100%;
+  text-align: center;
+}
+
+.camera__fallback {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.camera__controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 6rem;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.camera__close {
+  position: absolute;
+  left: 1rem;
+  color: #fff;
+}
+
+.camera__shutter {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 6px solid #fff;
+  background: #e8e8e8;
+  cursor: pointer;
+}
+
+.camera__shutter:active {
+  background: #bdbdbd;
+}
+
+.editor__area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor__controls {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  background: #111;
+}
+
+.editor__zoom {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.editor__zoom input {
+  width: 100%;
+  min-height: var(--touch);
+}
+
 /* ---------- Wider screens ---------- */
 
 @media (min-width: 768px) {
