@@ -1,0 +1,42 @@
+\documentclass[times]{san}
+
+\usepackage{array}
+
+\bibliografia{bibliografia.bib}
+
+% Pozwala łamać długie adresy URL w bibliografii także po cyfrach i literach.
+\setcounter{biburlnumpenalty}{9000}
+\setcounter{biburllcpenalty}{7000}
+\setcounter{biburlucpenalty}{8000}
+
+% Znacznik fragmentów, które zostaną uzupełnione w kolejnych etapach (PLAN.md, 13.2).
+% Przed oddaniem: grep -r "douzupelnienia" main.tex rozdzialy/ musi zwracać pusty wynik.
+\newcommand{\douzupelnienia}[1]{\textit{[Do uzupełnienia: #1]}}
+
+\uczelnia{Społeczna Akademia Nauk}
+\przedmiot{Systemy Szkieletowe}
+\autor{\douzupelnienia{imię i nazwisko}}
+\nralbumu{\douzupelnienia{nr albumu}}
+\grupa{\douzupelnienia{grupa}}
+\tytul{Aplikacja kierowcy -- system zarządzania dokumentami przewozowymi}
+\prowadzacy{mgr inż. Krystian Gumiński}
+\miasto{Łódź}
+\rok{2026}
+
+\begin{document}
+
+\maketitlepage
+\spistresci
+
+\input{rozdzialy/01-wstep}
+\input{rozdzialy/02-cel}
+\input{rozdzialy/03-przeglad}
+\input{rozdzialy/04-architektura}
+\input{rozdzialy/05-implementacja}
+\input{rozdzialy/06-podsumowanie}
+
+\spistabel
+\spisrysunkow
+\printbibliography
+
+\end{document}

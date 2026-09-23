@@ -1,0 +1,28 @@
+{
+  "name": "@driver-docs/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Validation schemas, types and enums shared by the backend and the frontend.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "typescript": "~6.0",
+    "vitest": "^5.0.1"
+  }
+}

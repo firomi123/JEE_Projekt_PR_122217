@@ -1,0 +1,92 @@
+\section{Opis architektury}
+\label{sec:architektura}
+
+System składa się z aplikacji klienckiej działającej w przeglądarce (PWA),
+serwera REST API, relacyjnej bazy danych oraz magazynu obiektów na pliki
+dokumentów. Wszystkie komponenty działają w kontenerach Docker i są
+uruchamiane wspólnie przez Docker Compose.
+
+\douzupelnienia{diagram kontenerów (model C4) i opis komunikacji między
+komponentami; Etap 2}
+
+\subsection{Wybór technologii}
+
+W całym projekcie użyto języka TypeScript \cite{typescript}. Frontend i backend
+korzystają dzięki temu z tych samych typów i schematów walidacji, umieszczonych
+we wspólnym pakiecie. Zestawienie technologii zawiera
+tabela~\ref{tab:technologie}.
+
+\begin{table}[htbp]
+\centering
+\caption{Technologie użyte w projekcie}
+\label{tab:technologie}
+\small
+\begin{tabular}{|p{0.2\textwidth}|p{0.3\textwidth}|p{0.38\textwidth}|}
+\hline
+\textbf{Obszar} & \textbf{Technologia} & \textbf{Uzasadnienie} \\
+\hline
+Backend & Node.js 22, Express \cite{nodejs,express} & Wskazany w wymaganiach, prosty serwer REST \\
+\hline
+Baza danych & PostgreSQL 16 \cite{postgresql} & Wskazana w wymaganiach \\
+\hline
+ORM i migracje & Prisma \cite{prisma} & Schemat bazy w jednym pliku, migracje wersjonowane w repozytorium \\
+\hline
+Pliki & MinIO (S3) \cite{minio} & Magazyn obiektów w osobnym kontenerze \\
+\hline
+Walidacja & Zod \cite{zod} & Te same reguły na froncie i w API \\
+\hline
+Frontend & React 19, Vite \cite{react,vite} & Szybkie środowisko deweloperskie, łatwa konfiguracja PWA \\
+\hline
+Uwierzytelnianie & JWT, argon2 & Tokeny z wymagań; aktualny standard skracania haseł \\
+\hline
+Szyfrowanie & AES-256-GCM (\texttt{node:crypto}) & Szyfrowanie kopertowe plików przed zapisem \\
+\hline
+Monitoring & Prometheus, Grafana \cite{prometheus} & Metryki, stan zdrowia, alerty, dashboardy \\
+\hline
+Konteneryzacja & Docker, Docker Compose \cite{docker} & Uruchomienie całego systemu jednym poleceniem \\
+\hline
+Testy & Vitest, Supertest, Playwright \cite{vitest,playwright} & Testy funkcjonalne API i interfejsu, testy jednostkowe \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Struktura repozytorium}
+
+Kod jest zorganizowany jako monorepo oparte na mechanizmie \emph{workspaces}
+menedżera npm. Jedno polecenie \texttt{npm install} instaluje zależności
+wszystkich pakietów, a wspólne skrypty (\texttt{build}, \texttt{lint},
+\texttt{test}) uruchamiane są z katalogu głównego. Podział katalogów
+przedstawia tabela~\ref{tab:repozytorium}.
+
+\begin{table}[htbp]
+\centering
+\caption{Katalogi repozytorium}
+\label{tab:repozytorium}
+\small
+\begin{tabular}{|p{0.22\textwidth}|p{0.66\textwidth}|}
+\hline
+\textbf{Katalog} & \textbf{Zawartość} \\
+\hline
+\texttt{backend/} & Serwer REST API (Express) \\
+\hline
+\texttt{frontend/} & Aplikacja kliencka React (PWA) \\
+\hline
+\texttt{shared/} & Schematy walidacji, typy i wyliczenia wspólne dla frontu i backendu \\
+\hline
+\texttt{e2e/} & Funkcjonalne testy interfejsu (Playwright) \\
+\hline
+\texttt{monitoring/} & Konfiguracja Prometheusa, Grafany i alertów \\
+\hline
+\texttt{docs/} & Niniejsze sprawozdanie (\LaTeX) i diagramy \\
+\hline
+\texttt{scripts/} & Skrypty pomocnicze, m.in. budowanie sprawozdania w Dockerze \\
+\hline
+\end{tabular}
+\end{table}
+
+Pakiet \texttt{shared} jest kompilowany jako pierwszy, ponieważ importują go
+backend i frontend. Jakość kodu pilnują ESLint (reguły dla TypeScriptu
+i Reacta) oraz Prettier (jednolite formatowanie); oba narzędzia uruchamia
+polecenie \texttt{npm run lint}. Wspólne ustawienia kompilatora TypeScript
+(tryb \texttt{strict}) znajdują się w pliku \texttt{tsconfig.base.json},
+rozszerzanym przez każdy pakiet.

@@ -1,1 +1,44 @@
+# Planning and course documents kept local only (README.md is versioned)
 *.md
+!README.md
+.ai-memory/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Playwright
+e2e/playwright-report/
+e2e/test-results/
+e2e/blob-report/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and OS/editor files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# LaTeX auxiliary files (report is built into docs/sprawozdanie/build/)
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc

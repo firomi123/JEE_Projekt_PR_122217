@@ -1,0 +1,17 @@
+{
+  "name": "@driver-docs/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Functional end-to-end UI tests (Playwright) of the driver document-management app.",
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test --pass-with-no-tests",
+    "install:browsers": "playwright install chromium",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
+    "typescript": "~6.0"
+  }
+}

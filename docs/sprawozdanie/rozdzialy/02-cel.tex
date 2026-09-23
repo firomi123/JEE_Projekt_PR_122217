@@ -1,0 +1,39 @@
+\section{Cel projektu}
+\label{sec:cel}
+
+Celem projektu jest aplikacja, dzięki której kierowca ma dokumenty przewozowe
+w telefonie, a nie tylko w papierowej teczce. Aplikacja ma skrócić czas od
+otrzymania dokumentu do jego dostępności w formie cyfrowej, zmniejszyć ryzyko
+zgubienia dokumentu i zapewnić jego poufność.
+
+\subsection{Wymagania funkcjonalne}
+
+\begin{enumerate}
+  \item Rejestracja konta (formularz z walidacją danych) i logowanie loginem
+        i hasłem; uwierzytelnianie żądań tokenem JWT.
+  \item Profil kierowcy, do którego przypisane są jego dokumenty.
+  \item Zarządzanie dokumentami: typ dokumentu (np. CMR, WZ), status
+        (np. roboczy, przesłany, zaakceptowany), tytuł i numer, wyszukiwanie
+        i filtrowanie.
+  \item Zdjęcie dokumentu aparatem urządzenia mobilnego
+        (interfejs \texttt{getUserMedia}), podgląd i kadrowanie przed zapisaniem
+        oraz kompresja zdjęcia przed wysłaniem na serwer.
+  \item Wersjonowanie dokumentów: każda nowa wersja pliku jest zachowywana,
+        a zmiany metadanych i statusu trafiają do historii zmian.
+\end{enumerate}
+
+\subsection{Wymagania niefunkcjonalne}
+
+\begin{enumerate}
+  \item \textbf{Bezpieczeństwo}: pliki dokumentów są przechowywane
+        w postaci zaszyfrowanej, hasła jako skróty kryptograficzne, a użytkownik
+        ma dostęp wyłącznie do własnych dokumentów.
+  \item \textbf{Obsługa na urządzeniach mobilnych}: interfejs responsywny,
+        dostosowany do obsługi dotykowej, możliwy do zainstalowania jako PWA.
+  \item \textbf{Łatwe wdrożenie}: cały system uruchamiany jednym poleceniem
+        przez Docker Compose.
+  \item \textbf{Niezawodność i obserwowalność}: monitorowanie stanu zdrowia
+        usług, metryki, alerty i automatyczne restarty po awarii.
+  \item \textbf{Jakość}: testy funkcjonalne każdej funkcji systemu,
+        uzupełnione testami jednostkowymi.
+\end{enumerate}
