@@ -175,5 +175,50 @@ reguł przejść statusów, pokazywanie usuniętych dokumentów na liście
 i przyjmowanie plików o nierozpoznanym formacie. Każda usterka spowodowała
 niepowodzenie od jednego do pięciu testów.
 
-\douzupelnienia{testy Playwright, raport pokrycia, przykład naprawy błędu
-metodą test, potem poprawka; Etapy 7--12}
+\subsubsection{Testy interfejsu (Playwright)}
+
+Scenariusze użytkownika sprawdza Playwright \cite{playwright} w przeglądarce
+Chromium z emulacją telefonu Pixel~7 (ekran, dotyk, agent użytkownika).
+Playwright sam uruchamia backend na bazie testowej (port 3101) oraz
+produkcyjnie zbudowany frontend serwowany przez \texttt{vite preview} (port
+5174, z przekierowaniem \texttt{/api} do backendu). Zmienna
+\texttt{E2E\_BASE\_URL} pozwala uruchomić te same testy na działającym stosie
+Docker (\texttt{http://localhost:8090}). Testy wyszukują elementy tak jak
+użytkownik, po etykietach i rolach (\texttt{getByLabel},
+\texttt{getByRole}), co przy okazji sprawdza dostępność formularzy.
+
+Scenariusze Etapu 7: rejestracja z automatycznym zalogowaniem; błędy walidacji
+przy polach i brak wysłania niepoprawnego formularza; zajęty login pokazany
+przy polu; logowanie; komunikat przy złym haśle; wylogowanie i ponowna
+ochrona stron; zachowanie sesji po odświeżeniu; powrót pod żądany adres po
+zalogowaniu; automatyczne wylogowanie przy nieważnym tokenie; dolny pasek
+nawigacji z elementami o wysokości co najmniej 44~pikseli.
+
+\paragraph{Napotkany problem: niestabilne testy.} Pierwsze przebiegi kończyły
+się przekroczeniem czasu w losowych testach. Zanim zmieniono konfigurację,
+ustalono przyczynę:
+\begin{enumerate}
+  \item Serwer deweloperski Vite przy pierwszym wejściu kompiluje zależności,
+        a kilka przeglądarek naraz czekało na tę kompilację. Rozwiązanie:
+        testy korzystają ze zbudowanej aplikacji (\texttt{vite preview}),
+        która przy okazji jest tą samą wersją, co trafia do produkcji.
+  \item Nadal zdarzały się pojedyncze przekroczenia czasu. Pomiary wykluczyły
+        kolejne hipotezy: backend odpowiadał na 12 równoczesnych rejestracji
+        w około 1~s, zarówno bezpośrednio, jak i przez proxy, a kompresja
+        odpowiedzi nie miała wpływu. Te same testy przeciwko stosowi Docker
+        (nginx) też bywały niestabilne. Ślady Playwright (\emph{trace})
+        pokazały, że w pierwszej partii testów sama rejestracja trwała
+        3--4~s, a w najgorszym przebiegu przeglądarka przez minutę nie mogła
+        wypełnić istniejącego już pola. Przyczyną było obciążenie komputera:
+        równolegle startujące przeglądarki konkurowały o procesor
+        z haszowaniem haseł argon2 (celowo kosztownym) oraz z innymi
+        kontenerami.
+\end{enumerate}
+Nie osłabiono parametrów argon2 na potrzeby testów, bo testy sprawdzałyby
+wtedy inną konfigurację niż produkcyjna. Liczbę równoległych przeglądarek
+ograniczono do dwóch, wydłużono limity czasu i dodano jedno automatyczne
+powtórzenie testu. Test, który przechodzi dopiero za drugim razem, Playwright
+oznacza jako \emph{flaky}, więc problem pozostaje widoczny w raporcie.
+
+\douzupelnienia{testy Playwright kolejnych etapów, raport pokrycia, przykład
+naprawy błędu metodą test, potem poprawka; Etapy 8--12}

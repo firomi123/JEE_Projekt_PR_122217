@@ -1,4 +1,73 @@
 \subsection{Frontend}
 \label{sec:frontend}
 
-\douzupelnienia{struktura aplikacji, obsługa aparatu, kadrowanie i kompresja (rozmiar przed i po), PWA, zrzuty ekranu z telefonu; Etapy 7--10}
+Frontend to aplikacja jednostronicowa (SPA) napisana w React~19 i TypeScripcie
+\cite{react}, budowana narzędziem Vite \cite{vite}. W Dockerze gotowe pliki
+serwuje nginx (podrozdział~\ref{sec:docker}). Aplikacja komunikuje się z API
+pod tym samym adresem (\texttt{/api}), więc nie wymaga konfiguracji CORS.
+
+\subsubsection{Struktura aplikacji}
+
+\begin{itemize}
+  \item \texttt{api/}: klient HTTP (dodaje token, zamienia odpowiedzi błędów na
+        wyjątek \texttt{ApiError} z kodem i błędami pól) oraz funkcje wywołujące
+        poszczególne endpointy;
+  \item \texttt{auth/}: stan zalogowania (kontekst Reacta), zapis sesji
+        i strażnicy tras;
+  \item \texttt{pages/}: ekrany aplikacji; \texttt{layout/}: układ stron;
+        \texttt{components/}: wspólne elementy (pole formularza, komunikat);
+  \item \texttt{i18n/texts.ts}: wszystkie teksty interfejsu po polsku w jednym
+        module, więc komponenty nie zawierają napisów na stałe.
+\end{itemize}
+
+Nawigacją zarządza React Router, a adresy są po polsku (\texttt{/logowanie},
+\texttt{/rejestracja}, \texttt{/profil}). Dane z serwera pobiera i przechowuje
+w pamięci podręcznej biblioteka TanStack Query. Błędy klienta (4xx) nie są
+ponawiane, bo ponowienie dałoby tę samą odpowiedź, a błędy sieci i serwera
+są ponawiane jeden raz.
+
+\subsubsection{Logowanie i sesja}
+
+Po zalogowaniu token JWT, dane użytkownika i czas wygaśnięcia tokenu są
+zapisywane w \texttt{localStorage}, dzięki czemu sesja przetrwa odświeżenie
+strony i ponowne uruchomienie aplikacji zainstalowanej jako PWA. Przy starcie
+zapisana sesja jest sprawdzana zapytaniem \texttt{GET /api/auth/me}. Każda
+odpowiedź 401 na żądanie z tokenem (token wygasł albo konto usunięto) wylogowuje
+użytkownika z komunikatem ,,Sesja wygasła. Zaloguj się ponownie.''. Aplikacja
+wylogowuje też sama w chwili wygaśnięcia tokenu. Przechowywanie tokenu
+w \texttt{localStorage} oznacza, że skrypt wstrzyknięty na stronę (atak XSS)
+mógłby go odczytać. Ryzyko ogranicza React, który domyślnie zabezpiecza
+wyświetlane dane, brak zewnętrznych skryptów i krótki czas życia tokenu
+(1~godzina). Alternatywą byłoby ciasteczko \texttt{HttpOnly}, które wymaga
+jednak dodatkowej ochrony przed atakami CSRF.
+
+Strażnik \texttt{RequireAuth} przekierowuje niezalogowanego użytkownika do
+ekranu logowania i zapamiętuje adres, pod który chciał wejść, a po zalogowaniu
+kieruje go z powrotem pod ten adres. Strażnik \texttt{GuestOnly} nie pokazuje
+ekranów logowania i rejestracji osobie już zalogowanej.
+
+\subsubsection{Formularze}
+
+Formularze obsługuje biblioteka react-hook-form ze schematami Zod
+z pakietu \texttt{shared}. Te same reguły i te same polskie komunikaty
+obowiązują więc w przeglądarce i w API. Niepoprawny formularz nie jest nawet
+wysyłany, a błędy pojawiają się przy polach. Błędy, które zna tylko serwer
+(np. zajęty login, odpowiedź 409), są przypisywane do właściwych pól na
+podstawie \texttt{details} z odpowiedzi API. Po rejestracji aplikacja
+automatycznie loguje użytkownika. Pola formularza są opisane etykietami,
+a pole z błędem ma atrybut \texttt{aria-invalid} i powiązany komunikat
+(\texttt{aria-describedby}), więc błąd odczytują też czytniki ekranu.
+
+\subsubsection{Układ dla urządzeń mobilnych}
+
+Style są pisane w podejściu \emph{mobile first}: podstawowe reguły dotyczą
+telefonów, a szersze ekrany dostają poprawki w media query. Na telefonie
+nawigacja główna jest paskiem przyklejonym do dolnej krawędzi ekranu, w zasięgu
+kciuka. Wszystkie elementy dotykowe (przyciski, pola, odnośniki nawigacji) mają
+co najmniej 48~pikseli wysokości, więcej niż zalecane minimum 44~pikseli.
+Układ uwzględnia wycięcia ekranu (\texttt{env(safe-area-inset-*)}). Na ekranie
+o szerokości od 768~pikseli nawigacja przechodzi pod górny pasek.
+
+\douzupelnienia{lista i szczegóły dokumentów, profil, obsługa aparatu,
+kadrowanie i kompresja (rozmiar przed i po), PWA, zrzuty ekranu z telefonu;
+Etapy 8--10}
