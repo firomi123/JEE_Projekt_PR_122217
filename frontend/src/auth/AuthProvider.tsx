@@ -1,24 +1,23 @@
 import type { LoginInput } from '@driver-docs/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as authApi from '../api/auth';
-import { configureApiClient } from '../api/client';
+import { setUnauthorizedHandler } from '../api/client';
 import { T } from '../i18n/texts';
 import { AuthContext, type AuthContextValue } from './auth-context';
 import { clearSession, readSession, writeSession, type StoredSession } from './session-storage';
+import { setAccessToken } from './token-store';
 
 /**
  * Provides the authentication state to the application.
  *
  * - Restores a stored, unexpired session on start and checks it once with
  *   `GET /api/auth/me` (a token revoked by deleting the account logs out).
- * - Connects the API client: every request carries the token, and a 401 on an
- *   authenticated request logs the user out with a "session expired" message.
+ * - Keeps the token in the token store read by the API client (updated inside
+ *   `login`/`logout`, so requests fired right afterwards already use it), and makes
+ *   a 401 on an authenticated request log the user out with a "session expired"
+ *   message.
  * - Logs out automatically when the token's lifetime ends.
- *
- * The token is also kept in a ref that is updated inside `login`/`logout`
- * themselves, so requests fired right after logging in (even by child effects,
- * which run before this component's effects) already carry it.
  *
  * @param props.children - The application.
  * @returns The context provider wrapping `children`.
@@ -28,11 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initial] = useState(() => readSession());
   const [session, setSession] = useState<StoredSession | null>(initial);
   const [logoutReason, setLogoutReason] = useState<string | null>(null);
-  const tokenRef = useRef<string | null>(initial?.token ?? null);
 
   const logout = useCallback(
     (reason?: string) => {
-      tokenRef.current = null;
+      setAccessToken(null);
       clearSession();
       setSession(null);
       setLogoutReason(reason ?? null);
@@ -48,18 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: response.user,
       expiresAt: Date.now() + response.expiresIn * 1000,
     };
-    tokenRef.current = next.token;
+    setAccessToken(next.token);
     writeSession(next);
     setLogoutReason(null);
     setSession(next);
   }, []);
 
-  // Connect the API client once; it reads the token through the ref.
+  // A 401 can only arrive after a response, i.e. after this effect has run.
   useEffect(() => {
-    configureApiClient(
-      () => tokenRef.current,
-      () => logout(T.login.sessionExpired),
-    );
+    setUnauthorizedHandler(() => logout(T.login.sessionExpired));
   }, [logout]);
 
   // Automatic logout when the token expires.

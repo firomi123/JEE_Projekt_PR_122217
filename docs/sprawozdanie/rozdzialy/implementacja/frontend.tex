@@ -68,6 +68,47 @@ co najmniej 48~pikseli wysokości, więcej niż zalecane minimum 44~pikseli.
 Układ uwzględnia wycięcia ekranu (\texttt{env(safe-area-inset-*)}). Na ekranie
 o szerokości od 768~pikseli nawigacja przechodzi pod górny pasek.
 
-\douzupelnienia{lista i szczegóły dokumentów, profil, obsługa aparatu,
-kadrowanie i kompresja (rozmiar przed i po), PWA, zrzuty ekranu z telefonu;
-Etapy 8--10}
+\subsubsection{Dokumenty i profil}
+
+\paragraph{Lista dokumentów.} Ekran startowy pokazuje dokumenty użytkownika
+jako karty z tytułem, kolorowym znacznikiem statusu (kolor i napis, więc
+informacja nie zależy tylko od koloru), typem, numerem, numerem wersji i datą
+ostatniej zmiany. Nad listą znajdują się filtry typu i statusu oraz pole
+wyszukiwania w tytule i numerze. Wartości filtrów są zapisane w adresie
+strony (np. \texttt{/?type=WZ\&status=SUBMITTED}), więc odświeżenie strony,
+przycisk ,,wstecz'' i udostępniony odnośnik zachowują widok. Zapytanie
+wyszukiwania jest wysyłane 300~ms po ostatnim naciśnięciu klawisza, a nie po
+każdym znaku. Przy przełączaniu stron listy poprzednie wyniki pozostają
+widoczne do czasu wczytania nowych, więc ekran nie miga.
+
+\paragraph{Dodawanie dokumentu.} Formularz zawiera typ, tytuł, opcjonalny numer
+i uwagi oraz plik. Przeglądarka od razu sprawdza rozmiar i zadeklarowany typ
+pliku, żeby użytkownik nie czekał na wysłanie 10~MB, które i tak zostałyby
+odrzucone. Ostatecznie o formacie decyduje jednak serwer, sprawdzając
+zawartość: plik wykonywalny przemianowany na \texttt{.pdf} przejdzie kontrolę
+w przeglądarce, ale komunikat serwera pojawi się przy polu pliku.
+
+\paragraph{Szczegóły dokumentu.} Ekran szczegółów pokazuje podgląd bieżącej
+wersji, przyciski zmiany statusu, formularz edycji tytułu i numeru, listę
+wersji z przyciskiem pobierania, formularz nowej wersji, historię zmian
+i przycisk usunięcia. Plik jest pobierany z nagłówkiem \texttt{Authorization},
+więc nie można go podać bezpośrednio w \texttt{<img src>}. Aplikacja pobiera
+go jako obiekt \texttt{Blob} i wyświetla przez tymczasowy adres
+\texttt{blob:}, który zwalnia, gdy przestaje być potrzebny. Zdjęcia są
+pokazywane bezpośrednio. Dla plików PDF wyświetlana jest karta z przyciskiem
+,,Otwórz PDF'', bo większość przeglądarek mobilnych nie wyświetla PDF
+osadzonego w stronie. Przyciski zmiany statusu powstają z tych samych reguł
+przejść, które sprawdza API (pakiet \texttt{shared}), więc interfejs pokazuje
+tylko dozwolone zmiany. Zmiana statusu i usunięcie wymagają potwierdzenia.
+Dokument zarchiwizowany jest wyświetlany tylko do odczytu. Po każdej zmianie
+dane dokumentu i listy są odświeżane automatycznie (unieważnienie pamięci
+podręcznej TanStack Query).
+
+\paragraph{Profil kierowcy.} Formularz profilu korzysta ze wspólnego schematu,
+a po zapisaniu pokazuje wartości znormalizowane przez serwer, np. numer
+telefonu bez spacji. Pola mają atrybuty \texttt{autocomplete} i
+\texttt{inputmode} (np. klawiatura numeryczna dla telefonu), co ułatwia
+wypełnianie na telefonie.
+
+\douzupelnienia{obsługa aparatu, kadrowanie i kompresja (rozmiar przed i po),
+PWA, zrzuty ekranu z telefonu; Etapy 9--10}

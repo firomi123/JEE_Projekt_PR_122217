@@ -13,7 +13,8 @@ test.describe('registration', () => {
 
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Moje dokumenty' })).toBeVisible();
-    await expect(page.getByText(`Witaj, ${username}!`)).toBeVisible();
+    await expect(page.getByTestId('current-user')).toHaveText(username);
+    await expect(page.getByText('Nie masz jeszcze żadnych dokumentów.')).toBeVisible();
   });
 
   test('shows validation errors next to the fields and sends nothing', async ({ page }) => {

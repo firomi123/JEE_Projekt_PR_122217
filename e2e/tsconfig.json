@@ -5,7 +5,8 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "types": ["node"],
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "lib": ["ES2023", "DOM"]
   },
   "include": ["tests", "playwright.config.ts", "global-setup.ts", "env.ts"]
 }

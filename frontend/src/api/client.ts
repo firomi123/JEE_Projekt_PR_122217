@@ -1,3 +1,5 @@
+import { getAccessToken } from '../auth/token-store';
+
 /** One field problem reported by the API in `error.details`. */
 export interface FieldIssue {
   path: string;
@@ -25,21 +27,17 @@ export class ApiError extends Error {
   }
 }
 
-/** Supplies the current access token (set by the auth provider). */
-let tokenProvider: () => string | null = () => null;
 /** Called when an authenticated request gets 401 (set by the auth provider). */
 let unauthorizedHandler: () => void = () => {};
 
 /**
- * Connects the API client to the authentication state.
+ * Registers what to do when a request that carried a token is answered with 401
+ * (expired or revoked session); normally logs the user out.
  *
- * @param getToken - Returns the current access token or `null`.
- * @param onUnauthorized - Invoked when a request that carried a token is answered
- *   with 401 (expired or revoked session); normally logs the user out.
+ * @param handler - The callback.
  */
-export function configureApiClient(getToken: () => string | null, onUnauthorized: () => void) {
-  tokenProvider = getToken;
-  unauthorizedHandler = onUnauthorized;
+export function setUnauthorizedHandler(handler: () => void): void {
+  unauthorizedHandler = handler;
 }
 
 /** Options of {@link apiRequest}. */
@@ -65,7 +63,7 @@ export interface RequestOptions {
  * unauthorized handler before throwing.
  */
 export async function apiFetch(path: string, options: RequestOptions = {}): Promise<Response> {
-  const token = tokenProvider();
+  const token = getAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;

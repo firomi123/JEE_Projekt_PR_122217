@@ -220,5 +220,51 @@ ograniczono do dwóch, wydłużono limity czasu i dodano jedno automatyczne
 powtórzenie testu. Test, który przechodzi dopiero za drugim razem, Playwright
 oznacza jako \emph{flaky}, więc problem pozostaje widoczny w raporcie.
 
-\douzupelnienia{testy Playwright kolejnych etapów, raport pokrycia, przykład
-naprawy błędu metodą test, potem poprawka; Etapy 8--12}
+Etap 8 dodał 11 scenariuszy dokumentów i profilu: dodanie dokumentu z pliku
+i jego widoczność w podglądzie (sprawdzane jest, że obraz faktycznie się
+wczytał) oraz na liście; odrzucenie przez serwer pliku podszywającego się pod
+PDF; filtrowanie po typie i statusie oraz wyszukiwanie; dodanie nowej wersji
+(dwie wersje na liście, wpis w historii); zmiana statusu widoczna na liście;
+edycja tytułu i numeru; pobranie wersji i porównanie treści pliku
+z oryginałem; usunięcie po potwierdzeniu; zapis profilu z normalizacją
+wartości i błędy walidacji przy polach. Dokumenty potrzebne tylko jako tło
+(np. do testu filtrów) są tworzone bezpośrednio przez API, co skraca test.
+
+\subsubsection{Przykład naprawy błędu: najpierw test, potem poprawka}
+
+Podczas pisania testów Etapu 8 kilka scenariuszy, które otwierały stronę
+dokumentu pod bezpośrednim adresem, zatrzymywało się na komunikacie
+,,Sesja wygasła'', mimo że użytkownik był zalogowany. Postępowanie było
+następujące.
+
+\begin{enumerate}
+  \item \textbf{Ustalenie przyczyny.} Pierwsza hipoteza (osadzony podgląd PDF
+        blokuje przeglądarkę testową) była tylko częściowo trafna: po zmianie
+        podglądu błąd pozostał. Zapis stanu strony z Playwright pokazał, że
+        pierwsze zapytanie po wczytaniu strony dostaje odpowiedź 401.
+        Komponent \texttt{AuthProvider} przekazywał token do klienta API
+        w efekcie (\texttt{useEffect}), a React wykonuje efekty komponentów
+        potomnych przed efektem rodzica. Zapytania o dane, uruchamiane w
+        efektach potomków, wychodziły więc przed podłączeniem tokenu. Przy
+        logowaniu problem nie występował, bo token był ustawiany w samej
+        funkcji logowania. Występował tylko po przeładowaniu strony, gdy sesja
+        była odtwarzana z \texttt{localStorage}.
+  \item \textbf{Test odtwarzający błąd.} Dodano scenariusz: utwórz dokument,
+        odśwież stronę, sprawdź, że dokument jest na liście, otwórz jego stronę
+        z adresu i sprawdź, że nie ma komunikatu o wygaśnięciu sesji. Przed
+        poprawką test nie przechodził z opisanego powodu (lista po odświeżeniu
+        była pusta).
+  \item \textbf{Poprawka.} Token przeniesiono do małego modułu poza Reactem
+        (\texttt{token-store.ts}), inicjowanego z zapisanej sesji przy
+        załadowaniu aplikacji, zanim wyrenderuje się jakikolwiek komponent.
+        Klient API odczytuje go stamtąd przy każdym żądaniu. Po poprawce
+        nowy test i cały zestaw scenariuszy przechodzą.
+\end{enumerate}
+
+\noindent Błąd dotyczył zwykłego użycia aplikacji (odświeżenie strony, wejście
+z zakładki lub z ikony PWA). Testy funkcjonalne backendu nie mogły go wykryć,
+bo backend działał poprawnie. Wykryły go dopiero testy interfejsu w
+przeglądarce.
+
+\douzupelnienia{testy Playwright kolejnych etapów, raport pokrycia;
+Etapy 9--12}

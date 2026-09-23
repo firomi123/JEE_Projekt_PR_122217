@@ -1,7 +1,10 @@
 import { createBrowserRouter } from 'react-router';
 import { GuestOnly, RequireAuth } from './auth/RequireAuth';
 import { AppLayout, AuthLayout } from './layout/AppLayout';
-import { HomePage } from './pages/HomePage';
+import { DocumentDetailsPage } from './pages/DocumentDetailsPage';
+import { DocumentsPage } from './pages/DocumentsPage';
+import { NewDocumentPage } from './pages/NewDocumentPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -30,7 +33,10 @@ export const router = createBrowserRouter([
       </RequireAuth>
     ),
     children: [
-      { path: '/', element: <HomePage /> },
+      { path: '/', element: <DocumentsPage /> },
+      { path: '/dokumenty/nowy', element: <NewDocumentPage /> },
+      { path: '/dokumenty/:id', element: <DocumentDetailsPage /> },
+      { path: '/profil', element: <ProfilePage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -67,3 +67,41 @@ export async function fillLogin(page: Page, username: string, password = PASSWOR
   await page.getByLabel('Hasło').fill(password);
   await page.getByRole('button', { name: 'Zaloguj się' }).click();
 }
+
+/**
+ * Reads the access token of the logged-in user from the page's `localStorage`.
+ *
+ * @param page - Playwright page with a logged-in user.
+ * @returns The Bearer token.
+ */
+export async function tokenOf(page: Page): Promise<string> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('driver-docs.session')!).token);
+}
+
+/**
+ * Creates a document directly through the API as the logged-in user (faster than
+ * the form when a test only needs existing documents).
+ *
+ * @param page - Playwright page with a logged-in user.
+ * @param fields - Document type and title.
+ * @returns The id of the created document.
+ */
+export async function createDocumentViaApi(
+  page: Page,
+  fields: { type: string; title: string; number?: string },
+): Promise<string> {
+  const token = await tokenOf(page);
+  const response = await page.request.post('/api/documents', {
+    headers: { Authorization: `Bearer ${token}` },
+    multipart: {
+      ...fields,
+      file: {
+        name: 'dok.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from(`%PDF-1.7\n${fields.title}\n%%EOF\n`),
+      },
+    },
+  });
+  expect(response.status()).toBe(201);
+  return (await response.json()).document.id;
+}
