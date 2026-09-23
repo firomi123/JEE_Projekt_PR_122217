@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createDocumentViaApi, registerThroughUi } from './helpers';
 
 /**
@@ -7,7 +7,7 @@ import { createDocumentViaApi, registerThroughUi } from './helpers';
  *
  * @param page - Page of the application.
  */
-async function waitForServiceWorker(page: import('@playwright/test').Page) {
+async function waitForServiceWorker(page: Page) {
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });

@@ -6,12 +6,20 @@ import type {
   RegisterResponse,
 } from '@driver-docs/shared';
 import type { Request, Response } from 'express';
+import { AppError } from '../errors/app-error.js';
+import type { Metrics } from '../lib/metrics.js';
 import type { AuthService } from '../services/auth.service.js';
 
 /** HTTP handlers of `/api/auth`. Bodies are already validated by `validateBody`. */
 export class AuthController {
-  /** @param service - Registration, login and current-user logic. */
-  constructor(private readonly service: AuthService) {}
+  /**
+   * @param service - Registration, login and current-user logic.
+   * @param metrics - Application metrics (failed-login counter).
+   */
+  constructor(
+    private readonly service: AuthService,
+    private readonly metrics: Metrics,
+  ) {}
 
   /**
    * `POST /api/auth/register` – responds `201 { user }`.
@@ -28,12 +36,21 @@ export class AuthController {
 
   /**
    * `POST /api/auth/login` – responds `200 { accessToken, tokenType, expiresIn, user }`.
+   * Rejected credentials increment `auth_login_failures_total`.
    *
    * @param req - Body: validated {@link LoginData}.
    * @param res - Receives the access token.
    */
   login = async (req: Request, res: Response): Promise<void> => {
-    const body: LoginResponse = await this.service.login(req.body as LoginData);
+    let body: LoginResponse;
+    try {
+      body = await this.service.login(req.body as LoginData);
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'INVALID_CREDENTIALS') {
+        this.metrics.loginFailures.inc();
+      }
+      throw error;
+    }
     req.log.info({ userId: body.user.id }, 'User logged in');
     res.json(body);
   };

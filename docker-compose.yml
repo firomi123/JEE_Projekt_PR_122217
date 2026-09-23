@@ -1,16 +1,31 @@
 # Full application stack. Usage:
 #   npm run env:init          # once: creates .env with random secrets
 #   docker compose up -d --build --wait
-# Services, networks and volumes are described in docs/sprawozdanie (Docker chapter).
+# Services, networks and volumes are described in docs/sprawozdanie (Docker and
+# Monitoring chapters).
+#
+# Supervision, level by level:
+#   process    – the backend exits on fatal errors and shuts down gracefully (server.ts)
+#   container  – healthcheck + restart: unless-stopped, autoheal restarts "unhealthy"
+#                containers labelled autoheal=true, memory/CPU limits for every service
+#   service    – Blackbox Exporter probes the app from outside through nginx
+#   alerts     – Prometheus rules -> Alertmanager -> alert-logger (webhook)
+#   logs       – Alloy collects every container's logs into Loki (Grafana Explore)
 
 name: driver-docs
 
 x-restart: &restart
   restart: unless-stopped
 
+# Restart by autoheal when the healthcheck reports "unhealthy" (Docker itself only
+# restarts containers whose main process exits).
+x-autoheal: &autoheal
+  labels:
+    autoheal: 'true'
+
 services:
   postgres:
-    <<: *restart
+    <<: [*restart, *autoheal]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
@@ -21,6 +36,8 @@ services:
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     networks: [data]
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 10s
@@ -29,7 +46,7 @@ services:
       start_period: 20s
 
   minio:
-    <<: *restart
+    <<: [*restart, *autoheal]
     # MinIO no longer publishes Community images on Docker Hub; this is the last
     # Community release on quay.io.
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -37,12 +54,17 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      # Prometheus may read /minio/v2/metrics/cluster without a token (the port is
+      # only reachable inside Docker networks and on 127.0.0.1).
+      MINIO_PROMETHEUS_AUTH_TYPE: public
     volumes:
       - miniodata:/data
     ports:
       - '127.0.0.1:${MINIO_API_PORT:-9000}:9000'
       - '127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001'
-    networks: [data]
+    networks: [data, monitoring]
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
       test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/minio/health/live']
       interval: 10s
@@ -69,6 +91,7 @@ services:
         mc mb --ignore-existing "local/$$S3_BUCKET" &&
         mc anonymous set none "local/$$S3_BUCKET"
     networks: [data]
+    mem_limit: 128m
 
   # One-shot job: applies pending Prisma migrations, then exits with code 0.
   migrate:
@@ -84,15 +107,18 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     networks: [data]
+    mem_limit: 512m
 
   backend:
-    <<: *restart
+    <<: [*restart, *autoheal]
     build:
       context: .
       dockerfile: backend/Dockerfile
     image: driver-docs/backend:local
     # tini as PID 1: forwards SIGTERM to Node and reaps zombie processes.
     init: true
+    # Graceful shutdown takes at most 10 s (server.ts); give it a little more.
+    stop_grace_period: 15s
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,6 +135,7 @@ services:
       # One trusted proxy hop: the frontend nginx sets X-Forwarded-For.
       TRUST_PROXY: 1
       LOGIN_RATE_LIMIT_MAX: ${LOGIN_RATE_LIMIT_MAX:-10}
+      EVENT_LOOP_LAG_THRESHOLD_MS: ${EVENT_LOOP_LAG_THRESHOLD_MS:-1000}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       S3_ENDPOINT: http://minio:9000
       S3_BUCKET: ${S3_BUCKET:-documents}
@@ -118,6 +145,9 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:?set MASTER_ENCRYPTION_KEY in .env (npm run env:init)}
     networks: [app, data, monitoring]
+    # A memory leak ends in a controlled container restart instead of a hung host.
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3000/health']
       interval: 10s
@@ -126,7 +156,7 @@ services:
       start_period: 15s
 
   frontend:
-    <<: *restart
+    <<: [*restart, *autoheal]
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -137,6 +167,8 @@ services:
     ports:
       - '${FRONTEND_PORT:-8090}:8080'
     networks: [app]
+    mem_limit: 128m
+    cpus: 0.5
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/nginx-health']
       interval: 10s
@@ -144,8 +176,10 @@ services:
       retries: 3
       start_period: 10s
 
+  # ---------------------------------------------------------------- monitoring
+
   prometheus:
-    <<: *restart
+    <<: [*restart, *autoheal]
     image: prom/prometheus:v3.14.0
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -153,10 +187,13 @@ services:
       - --storage.tsdb.retention.time=15d
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - promdata:/prometheus
     ports:
       - '127.0.0.1:${PROMETHEUS_PORT:-9090}:9090'
     networks: [monitoring]
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9090/-/healthy']
       interval: 15s
@@ -164,8 +201,152 @@ services:
       retries: 3
       start_period: 15s
 
-  grafana:
+  alertmanager:
+    <<: [*restart, *autoheal]
+    image: prom/alertmanager:v0.34.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanagerdata:/alertmanager
+    ports:
+      - '127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093'
+    networks: [monitoring]
+    mem_limit: 128m
+    cpus: 0.5
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9093/-/healthy']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Receives Alertmanager notifications (webhook) and prints them to its log.
+  alert-logger:
     <<: *restart
+    image: mendhak/http-https-echo:42
+    environment:
+      HTTP_PORT: 8080
+      LOG_IGNORE_PATH: /healthz
+    networks: [monitoring]
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  blackbox-exporter:
+    <<: *restart
+    image: prom/blackbox-exporter:v0.28.0
+    command: ['--config.file=/etc/blackbox/blackbox.yml']
+    volumes:
+      - ./monitoring/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    # Probes the app like a user does – through the frontend nginx (network "app").
+    networks: [app, monitoring]
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9115/-/healthy']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres-exporter:
+    <<: *restart
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB}?sslmode=disable
+      DATA_SOURCE_USER: ${POSTGRES_USER}
+      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data, monitoring]
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9187/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cadvisor:
+    <<: *restart
+    image: ghcr.io/google/cadvisor:v0.60.6
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --disable_metrics=advtcp,cpu_topology,disk,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp
+    networks: [monitoring]
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:8080/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  node-exporter:
+    <<: *restart
+    image: prom/node-exporter:v1.12.1
+    command: ['--path.rootfs=/host']
+    pid: host
+    volumes:
+      # Plain read-only bind (Docker Desktop does not support rslave for "/").
+      - /:/host:ro
+    networks: [monitoring]
+    mem_limit: 64m
+    cpus: 0.25
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9100/metrics']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Log storage. Distroless image (no shell, so no healthcheck command); its health
+  # is watched by Prometheus (job "loki", alert on `up == 0`).
+  loki:
+    <<: *restart
+    image: grafana/loki:3.7.8
+    command: ['-config.file=/etc/loki/loki.yml']
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+    networks: [monitoring]
+    mem_limit: 512m
+    cpus: 0.5
+
+  # Collects the logs of all containers from the Docker API and ships them to Loki.
+  alloy:
+    <<: *restart
+    image: grafana/alloy:v1.19.2
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks: [monitoring]
+    mem_limit: 256m
+    cpus: 0.5
+
+  grafana:
+    <<: [*restart, *autoheal]
     image: grafana/grafana:13.2.2
     depends_on:
       prometheus:
@@ -175,12 +356,16 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/app.json
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafanadata:/var/lib/grafana
     ports:
       - '${GRAFANA_PORT:-3001}:3000'
     networks: [monitoring]
+    mem_limit: 256m
+    cpus: 0.5
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:3000/api/health']
       interval: 15s
@@ -188,12 +373,27 @@ services:
       retries: 3
       start_period: 30s
 
+  # Restarts containers labelled autoheal=true when they become "unhealthy". The
+  # Docker socket is mounted read-only (the API calls still work over it).
+  autoheal:
+    <<: *restart
+    image: willfarrell/autoheal:1.2.0
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 5
+      AUTOHEAL_START_PERIOD: 30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    network_mode: none
+    mem_limit: 32m
+    cpus: 0.1
+
 networks:
-  # nginx (frontend) <-> backend
+  # nginx (frontend) <-> backend; the black-box prober joins as a "user"
   app:
-  # backend <-> PostgreSQL, MinIO
+  # backend <-> PostgreSQL, MinIO (+ their exporters)
   data:
-  # Prometheus scrapes the backend; Grafana reads Prometheus
+  # Prometheus, Alertmanager, Grafana, Loki and everything they scrape
   monitoring:
 
 volumes:
@@ -201,3 +401,5 @@ volumes:
   miniodata:
   promdata:
   grafanadata:
+  alertmanagerdata:
+  lokidata:

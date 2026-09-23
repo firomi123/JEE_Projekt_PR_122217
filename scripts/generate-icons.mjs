@@ -13,7 +13,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 
-const iconsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'frontend', 'public', 'icons');
+const iconsDir = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'frontend',
+  'public',
+  'icons',
+);
 const svg = readFileSync(resolve(iconsDir, 'icon.svg'), 'utf8');
 
 /**

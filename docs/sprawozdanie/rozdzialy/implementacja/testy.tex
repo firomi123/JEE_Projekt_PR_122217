@@ -337,4 +337,25 @@ działa tylko w wersji produkcyjnej):
         plików dokumentów.
 \end{itemize}
 
-\douzupelnienia{testy kolejnych etapów, raport pokrycia; Etapy 11--12}
+\subsubsection{Testy monitoringu i watchdogów}
+
+Testy funkcjonalne backendu (8 nowych, pisane przed implementacją) sprawdzają,
+że \texttt{/metrics} zwraca format Prometheusa z metrykami Node.js; licznik
+żądań rośnie o jeden po żądaniu i ma etykietę szablonu trasy; nieznane
+ścieżki mają etykietę \texttt{unmatched}, a ich adresy nie trafiają do metryk;
+licznik nieudanych logowań rośnie tylko przy złych danych logowania; upload
+zwiększa licznik według typu i sumę rozmiarów o rozmiar pliku; czas zapytań
+do bazy jest mierzony; \texttt{/metrics} nie jest dostępny pod \texttt{/api};
+\texttt{/health} zwraca 503 po zablokowaniu pętli zdarzeń na 600~ms (przy
+progu 200~ms) i 200 przy kolejnym sprawdzeniu. Ten ostatni test wykazał, że
+wbudowana funkcja \texttt{monitorEventLoopDelay} pomija blokadę następującą
+tuż po wyzerowaniu pomiaru, co doprowadziło do własnej implementacji pomiaru
+(podrozdział~\ref{sec:monitoring}).
+
+Reguły alertów i konfiguracje Prometheusa oraz Alertmanagera są sprawdzane
+narzędziami \texttt{promtool} i \texttt{amtool} (\texttt{npm run
+monitoring:check}). Działanie watchdogów na działającym stosie sprawdza skrypt
+\path{monitoring/chaos-test.sh} (\texttt{npm run chaos}), opisany
+w podrozdziale~\ref{sec:monitoring}.
+
+\douzupelnienia{pełny scenariusz na stosie Docker, raport pokrycia; Etap 12}

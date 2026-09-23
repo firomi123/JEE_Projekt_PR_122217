@@ -1,0 +1,27 @@
+# Alertmanager: groups alerts and sends them to receivers.
+# Check with: amtool check-config monitoring/alertmanager/alertmanager.yml
+route:
+  receiver: webhook
+  group_by: [alertname, instance]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  routes:
+    # The always-firing Watchdog alert is re-sent every 5 minutes as a heartbeat.
+    - matchers: ['alertname="Watchdog"']
+      receiver: webhook
+      repeat_interval: 5m
+
+receivers:
+  # Every notification is POSTed as JSON to the alert-logger container, which prints
+  # it to its log (visible with `docker compose logs alert-logger` and in Loki).
+  # A real deployment would add an e-mail, Discord or Slack receiver here.
+  - name: webhook
+    webhook_configs:
+      - url: http://alert-logger:8080/alert
+        send_resolved: true
+
+inhibit_rules:
+  # When the whole service is down, do not also report its symptoms.
+  - source_matchers: ['alertname="ServiceDown"']
+    target_matchers: ['alertname=~"HighErrorRate|HighLatency"']

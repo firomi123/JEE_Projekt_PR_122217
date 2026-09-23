@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { eventLoopMonitor } from '../lib/event-loop.js';
 import type { DependencyName, HealthService } from '../services/health.service.js';
 
 /** Response body of `GET /health/ready`. */
@@ -9,18 +10,36 @@ export interface ReadinessResponseBody {
 
 /** HTTP handlers of the health endpoints. */
 export class HealthController {
-  /** @param service - Performs the readiness checks. */
-  constructor(private readonly service: HealthService) {}
+  /**
+   * @param service - Performs the readiness checks.
+   * @param lagThresholdMs - Event-loop delay above which liveness fails.
+   */
+  constructor(
+    private readonly service: HealthService,
+    private readonly lagThresholdMs: number,
+  ) {}
 
   /**
-   * `GET /health` – liveness. Responds `200 { "status": "ok" }` whenever the process
-   * can serve HTTP; deliberately checks no dependencies, so a database outage does
-   * not make Docker restart a healthy API container.
+   * `GET /health` – liveness. Responds `200 { "status": "ok" }` while the process
+   * serves HTTP normally. It deliberately checks no dependencies, so a database
+   * outage does not make Docker restart a healthy API container. It does check the
+   * process itself: if the event loop was blocked longer than the threshold since
+   * the previous check (e.g. a runaway synchronous loop), it responds
+   * `503 { status: "unhealthy", reason: "event_loop_lag", lagMs }`, so the Docker
+   * healthcheck marks the container unhealthy and autoheal restarts it.
    *
-   * @param _req - Unused.
+   * @param req - Incoming request (its logger records a failed check).
    * @param res - Receives the JSON response.
    */
-  liveness = (_req: Request, res: Response): void => {
+  liveness = (req: Request, res: Response): void => {
+    const lagMs = eventLoopMonitor.takeMaxDelayMs();
+    if (lagMs > this.lagThresholdMs) {
+      req.log.warn({ lagMs }, 'Liveness check failed: event loop was blocked');
+      res
+        .status(503)
+        .json({ status: 'unhealthy', reason: 'event_loop_lag', lagMs: Math.round(lagMs) });
+      return;
+    }
     res.json({ status: 'ok' });
   };
 

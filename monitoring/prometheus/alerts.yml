@@ -1,0 +1,102 @@
+# Alert rules. Check with: promtool check rules monitoring/prometheus/alerts.yml
+groups:
+  - name: meta
+    rules:
+      # Dead man's switch: always firing. If it stops arriving at the receiver, the
+      # monitoring chain (Prometheus -> Alertmanager -> notifications) is broken.
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: Łańcuch alertów działa (alert kontrolny, zawsze aktywny)
+
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: probe_success == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Niedostępne: {{ $labels.instance }}'
+          description: Sonda blackbox nie dostaje odpowiedzi 2xx od ponad minuty.
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus nie może pobrać metryk backendu
+      - alert: TargetDown
+        expr: up{job!="backend"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Prometheus nie może pobrać metryk: {{ $labels.job }}'
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Baza PostgreSQL nie odpowiada
+
+  - name: application
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+            / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Ponad 5% odpowiedzi API to błędy 5xx
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Czas odpowiedzi API (p95) powyżej 1 s
+      - alert: EventLoopLagHigh
+        expr: nodejs_eventloop_lag_seconds > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Pętla zdarzeń backendu jest blokowana (opóźnienie powyżej 0,5 s)
+      - alert: BruteForceSuspected
+        expr: increase(auth_login_failures_total[5m]) > 20
+        labels:
+          severity: warning
+        annotations:
+          summary: Ponad 20 nieudanych logowań w 5 minut – możliwa próba zgadywania haseł
+
+  - name: infrastructure
+    rules:
+      - alert: ContainerRestarting
+        expr: changes(container_start_time_seconds{name=~".+"}[15m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Kontener {{ $labels.name }} restartował się ponad 3 razy w 15 min'
+      - alert: DatabaseConnectionsHigh
+        expr: sum(pg_stat_activity_count) / scalar(max(pg_settings_max_connections)) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Wykorzystano ponad 80% limitu połączeń PostgreSQL
+      - alert: DiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"} < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Mniej niż 10% wolnego miejsca na {{ $labels.mountpoint }}'

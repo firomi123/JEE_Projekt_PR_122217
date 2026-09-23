@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 10 – aplikacja instalowalna (PWA), praca offline powłoki aplikacji.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
+> Stan: **Etap 11 – monitoring i watchdogi (metryki, dashboardy, alerty, logi, autoheal).** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
 
 ## Struktura
 
@@ -38,6 +38,8 @@ npm run docker:up         # docker compose up -d --build --wait
 | Dokumentacja API       | http://localhost:8090/api/docs                |
 | Grafana                | http://localhost:3001 (hasło admina w `.env`) |
 | Prometheus             | http://127.0.0.1:9090                         |
+| Alertmanager           | http://127.0.0.1:9093                         |
+| Logi (Loki)            | Grafana → Explore → źródło „Loki”             |
 | Konsola MinIO          | http://127.0.0.1:9001                         |
 | PostgreSQL (dla hosta) | 127.0.0.1:5432                                |
 
@@ -79,4 +81,6 @@ Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komp
 | `npm run env:init`                                  | Tworzy `.env` z `.env.example` i generuje sekrety                                                                                            |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Start (z budowaniem, czeka na `healthy`), zatrzymanie i logi całego stosu                                                                    |
 | `npm run test:infra:up` / `test:infra:down`         | Tymczasowe PostgreSQL (5433) i MinIO (9100) dla testów, dane w tmpfs                                                                         |
+| `npm run monitoring:check`                          | Sprawdza reguły alertów i konfigurację (`promtool`, `amtool`)                                                                                |
+| `npm run chaos`                                     | Test watchdogów na działającym stosie: awaria procesu, zamrożenie, zatrzymanie bazy (5–8 min, wymaga bash)                                   |
 | `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`); `-- --clean` buduje od zera |

@@ -24,14 +24,15 @@ function requestId(req: IncomingMessage, res: ServerResponse): string {
 
 /**
  * Checks whether a request is a successful-path liveness probe that should not be
- * logged (Docker polls `/health` every 10 s). Readiness probes are still logged.
+ * logged (Docker polls `/health` every 10 s, Prometheus scrapes `/metrics` every
+ * 15 s). Readiness probes are still logged.
  *
  * @param req - Incoming request.
- * @returns `true` for `GET /health` and `GET /api/health`.
+ * @returns `true` for `/health`, `/api/health` and `/metrics`.
  */
 function isLivenessProbe(req: IncomingMessage): boolean {
   const path = req.url?.split('?')[0];
-  return path === '/health' || path === '/api/health';
+  return path === '/health' || path === '/api/health' || path === '/metrics';
 }
 
 /**

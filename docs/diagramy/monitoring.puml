@@ -1,0 +1,54 @@
+@startuml monitoring
+' Architektura monitoringu i nadzoru (Etap 11)
+skinparam dpi 200
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+left to right direction
+
+actor "Administrator" as admin
+
+package "Aplikacja" {
+  [frontend\n(nginx)] as frontend
+  [backend\n(/metrics, /health)] as backend
+  database "PostgreSQL" as pg
+  database "MinIO\n(/minio/v2/metrics)" as minio
+}
+
+package "Eksportery" {
+  [postgres-exporter] as pgexp
+  [cAdvisor\n(kontenery)] as cadvisor
+  [node-exporter\n(host)] as node
+  [Blackbox Exporter\n(sondy HTTP)] as blackbox
+}
+
+package "Monitoring" {
+  [Prometheus\n(metryki, reguły alertów)] as prom
+  [Alertmanager] as am
+  [alert-logger\n(webhook)] as logger
+  [Loki\n(logi)] as loki
+  [Alloy\n(zbieranie logów)] as alloy
+  [Grafana\n(dashboardy)] as grafana
+}
+
+node "Docker" as docker {
+  [autoheal] as autoheal
+}
+
+prom --> backend : scrape
+prom --> minio : scrape
+prom --> pgexp : scrape
+pgexp --> pg
+prom --> cadvisor : scrape
+prom --> node : scrape
+prom --> blackbox : scrape
+blackbox --> frontend : GET / i /api/health/ready
+prom --> am : alerty
+am --> logger : POST (webhook)
+alloy --> docker : logi kontenerów\n(Docker API)
+alloy --> loki : push
+grafana --> prom : PromQL
+grafana --> loki : LogQL
+admin --> grafana
+autoheal --> docker : restart kontenerów\n„unhealthy”
+@enduml

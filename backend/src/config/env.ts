@@ -25,6 +25,8 @@ const envSchema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   // Failed logins allowed per client IP within a 15-minute window.
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  // Liveness fails when the event loop was blocked longer than this since the last check.
+  EVENT_LOOP_LAG_THRESHOLD_MS: z.coerce.number().int().min(10).default(1000),
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, 'must be a postgresql:// connection string'),
@@ -52,6 +54,8 @@ export interface Config {
   trustProxy: number;
   /** Failed logins allowed per IP per 15 minutes. */
   loginRateLimitMax: number;
+  /** Event-loop delay (ms) above which `GET /health` reports 503. */
+  eventLoopLagThresholdMs: number;
   databaseUrl: string;
   s3: {
     endpoint: string;
@@ -108,6 +112,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
     logLevel: e.LOG_LEVEL,
     trustProxy: e.TRUST_PROXY,
     loginRateLimitMax: e.LOGIN_RATE_LIMIT_MAX,
+    eventLoopLagThresholdMs: e.EVENT_LOOP_LAG_THRESHOLD_MS,
     databaseUrl: e.DATABASE_URL,
     s3: {
       endpoint: e.S3_ENDPOINT,

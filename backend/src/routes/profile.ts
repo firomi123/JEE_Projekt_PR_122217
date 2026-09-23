@@ -1,5 +1,6 @@
 import { profileSchema } from '@driver-docs/shared';
-import { Router, type RequestHandler } from 'express';
+import type { Router, RequestHandler } from 'express';
+import { createRouter } from './router.js';
 import type { ProfileController } from '../controllers/profile.controller.js';
 import { validateBody } from '../middleware/validate-body.js';
 
@@ -17,7 +18,7 @@ export function createProfileRouter(
   controller: ProfileController,
   authenticate: RequestHandler,
 ): Router {
-  const router = Router();
+  const router = createRouter();
   router.use(authenticate);
   router.get('/', controller.get);
   router.put('/', validateBody(profileSchema), controller.update);

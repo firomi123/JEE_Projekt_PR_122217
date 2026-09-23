@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import type { Router } from 'express';
+import { createRouter } from './router.js';
 import type { HealthController } from '../controllers/health.controller.js';
 
 /**
@@ -10,7 +11,7 @@ import type { HealthController } from '../controllers/health.controller.js';
  * @returns An Express router meant to be mounted at `/health` and `/api/health`.
  */
 export function createHealthRouter(controller: HealthController): Router {
-  const router = Router();
+  const router = createRouter();
   router.get('/', controller.liveness);
   router.get('/ready', controller.readiness);
   return router;

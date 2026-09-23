@@ -1,4 +1,216 @@
 \subsection{Monitoring}
 \label{sec:monitoring}
 
-\douzupelnienia{architektura monitoringu, dashboardy Grafany, reguły alertów, watchdogi, wyniki testu chaos-test.sh; Etap 11}
+Nadzór nad systemem działa na czterech poziomach: procesu, kontenera, usługi
+widzianej z zewnątrz oraz alertów. Każda awaria ma być wykryta, w miarę
+możliwości naprawiona automatycznie i zgłoszona. Uzupełnieniem są metryki,
+dashboardy i centralne logi. Architekturę przedstawia
+rysunek~\ref{fig:monitoring}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{diagramy/monitoring.png}
+\caption{Architektura monitoringu i nadzoru}
+\label{fig:monitoring}
+\end{figure}
+
+\subsubsection{Metryki}
+
+Backend udostępnia endpoint \texttt{/metrics} w formacie tekstowym Prometheusa
+\cite{prometheus} (biblioteka prom-client). Poza standardowymi metrykami
+procesu Node.js (zużycie procesora i pamięci, odśmiecanie, opóźnienie pętli
+zdarzeń) zawiera metryki aplikacji:
+\begin{itemize}
+  \item \texttt{http\_requests\_total} i \texttt{http\_request\_duration\_seconds}
+        -- liczba i czas żądań według metody, kodu odpowiedzi i \emph{szablonu}
+        trasy (np. \texttt{/api/documents/:id}). Konkretne adresy nie są
+        etykietami, bo każdy identyfikator dokumentu tworzyłby nowy szereg
+        czasowy. Żądania, które nie pasują do żadnej trasy, mają etykietę
+        \texttt{unmatched};
+  \item \texttt{document\_uploads\_total} i
+        \texttt{document\_upload\_size\_bytes} -- liczba przesłanych
+        plików (według typu dokumentu) i ich rozmiar;
+  \item \texttt{auth\_login\_failures\_total} -- odrzucone logowania, podstawa
+        alertu o próbie zgadywania haseł;
+  \item \texttt{db\_query\_duration\_seconds} -- czas zapytań do bazy, mierzony
+        na podstawie zdarzeń zapytań klienta Prisma.
+\end{itemize}
+Endpoint \texttt{/metrics} leży poza ścieżką \texttt{/api}, więc serwer nginx
+go nie udostępnia. Prometheus pobiera go przez wewnętrzną sieć Dockera.
+Dodatkowe dane zbierają eksportery: \texttt{postgres-exporter} (połączenia,
+blokady, rozmiar bazy, transakcje), cAdvisor (procesor, pamięć i restarty
+każdego kontenera), \texttt{node-exporter} (zasoby komputera: procesor,
+pamięć, dysk) oraz wbudowany endpoint metryk MinIO (zajętość i liczba
+obiektów).
+
+\subsubsection{Dashboardy}
+
+Grafana przy starcie automatycznie dodaje źródła danych (Prometheus, Loki,
+Alertmanager) i cztery dashboardy przechowywane w repozytorium jako pliki JSON
+(\path{monitoring/grafana/dashboards}): ,,Aplikacja -- API'' (żądania na
+sekundę, odsetek błędów 5xx, czasy odpowiedzi p50/p95/p99, przesłane pliki,
+nieudane logowania, czas zapytań, opóźnienie pętli zdarzeń, pamięć),
+,,Dostępność'' (stan sond, dostępność w procentach z 24~godzin, czas
+odpowiedzi), ,,Kontenery i host'' oraz ,,Baza danych i magazyn plików''.
+
+\subsubsection{Watchdog procesu}
+
+\begin{itemize}
+  \item \textbf{Zasada fail fast.} Nieobsłużony wyjątek lub odrzucona obietnica
+        powoduje zapis do logu i zakończenie procesu z kodem~1. Proces nie
+        działa dalej w nieznanym stanie. Docker natychmiast uruchamia go od
+        nowa (\texttt{restart: unless-stopped}).
+  \item \textbf{Łagodne zamykanie.} Po sygnale \texttt{SIGTERM} serwer przestaje
+        przyjmować połączenia, kończy obsługę bieżących żądań, zamyka pulę
+        połączeń z bazą i klienta MinIO. Twardy limit wynosi 10~s.
+  \item \textbf{Limity czasu.} Klient ma 20~s na przesłanie nagłówków i 60~s na
+        całe żądanie (ochrona przed bardzo wolnymi klientami, a jednocześnie
+        wystarczająco dużo na plik 10~MB z telefonu). PostgreSQL przerywa
+        zapytanie po 10~s (\texttt{statement\_timeout}), sterownik rezygnuje
+        po 15~s, a połączenie z bazą i z MinIO musi powstać w ciągu kilku
+        sekund. Zawieszona zależność nie zawiesza więc całego API.
+  \item \textbf{Zablokowana pętla zdarzeń.} Node.js obsługuje wszystkie
+        żądania w jednym wątku, więc zapętlony synchroniczny kod blokuje całą
+        aplikację, choć proces formalnie działa. Zegar uruchamiany co 100~ms
+        mierzy, o ile później się wykonał, niż powinien, i zapamiętuje
+        największe opóźnienie. Jeśli od poprzedniego sprawdzenia przekroczyło
+        ono próg (domyślnie 1~s), \texttt{GET /health} odpowiada 503.
+        Wbudowana funkcja \texttt{monitorEventLoopDelay} nie nadawała się do
+        tego celu: test wykazał, że nie rejestruje blokady występującej
+        bezpośrednio po wyzerowaniu histogramu.
+\end{itemize}
+
+\subsubsection{Watchdog kontenerów}
+
+Każda usługa ma politykę \texttt{restart: unless-stopped}, a wszystkie usługi,
+których obraz na to pozwala, mają \texttt{healthcheck}. Docker Compose
+restartuje jednak kontener tylko wtedy, gdy jego proces się zakończy.
+Kontener, który działa, ale jest oznaczony jako \emph{unhealthy} (np. proces
+zawieszony), nie jest restartowany. Dlatego dodano kontener
+\textbf{autoheal}: co 5~sekund sprawdza on kontenery z etykietą
+\texttt{autoheal=true} i restartuje te, które stały się \emph{unhealthy}.
+Gniazdo Dockera jest mu udostępnione tylko do odczytu. W Kubernetesie tę samą
+rolę pełni wbudowana \emph{livenessProbe}, więc dodatkowy kontener nie byłby
+potrzebny. Obrazy Loki i Alloy nie mają powłoki (obrazy \emph{distroless}),
+więc nie da się w nich wykonać polecenia healthcheck. Ich stan kontroluje
+Prometheus, który pobiera z nich metryki (alert \texttt{TargetDown}).
+
+Każda usługa ma limit pamięci (\texttt{mem\_limit}) i procesora
+(\texttt{cpus}). Wyciek pamięci kończy się kontrolowanym restartem kontenera,
+a nie spowolnieniem całego komputera.
+
+\subsubsection{Sondy z zewnątrz}
+
+Blackbox Exporter co 15~sekund wysyła żądania HTTP tak jak użytkownik: przez
+serwer nginx do strony głównej i do \path{/api/health/ready}. Wykrywa to
+awarie niewidoczne w metrykach od środka, np. działający backend, do którego
+nginx nie przekazuje żądań. Wynik (\texttt{probe\_success}) i czas odpowiedzi
+trafiają do Prometheusa i na dashboard dostępności.
+
+\subsubsection{Alerty}
+
+Reguły alertów są zapisane w repozytorium (\path{monitoring/prometheus/alerts.yml})
+i sprawdzane narzędziem \texttt{promtool}. Tabela~\ref{tab:alerty} zawiera
+ich listę. Alertmanager grupuje alerty i wysyła powiadomienia jako żądania
+HTTP (\emph{webhook}) do kontenera \texttt{alert-logger}, który zapisuje je
+w swoim logu, a więc także w Loki. W rzeczywistym wdrożeniu wystarczy dodać
+odbiorcę e-mail, Discord lub Slack w pliku konfiguracyjnym Alertmanagera.
+Reguła wyciszania pomija alerty o błędach i opóźnieniach, gdy usługa jest
+całkowicie niedostępna.
+
+\begin{table}[htbp]
+\centering
+\caption{Reguły alertów}
+\label{tab:alerty}
+\small
+\begin{tabular}{|l|p{0.58\textwidth}|}
+\hline
+\textbf{Alert} & \textbf{Warunek} \\
+\hline
+\texttt{Watchdog} & Zawsze aktywny (\emph{dead man's switch}) \\
+\hline
+\texttt{ServiceDown} & Sonda blackbox bez odpowiedzi 2xx przez 1~min \\
+\hline
+\texttt{BackendDown}, \texttt{TargetDown} & Prometheus nie może pobrać metryk (1~min / 2~min) \\
+\hline
+\texttt{PostgresDown} & Baza nie odpowiada eksporterowi przez 1~min \\
+\hline
+\texttt{HighErrorRate} & Ponad 5\% odpowiedzi 5xx przez 5~min \\
+\hline
+\texttt{HighLatency} & Czas odpowiedzi p95 powyżej 1~s przez 5~min \\
+\hline
+\texttt{EventLoopLagHigh} & Opóźnienie pętli zdarzeń powyżej 0,5~s przez 2~min \\
+\hline
+\texttt{BruteForceSuspected} & Ponad 20 nieudanych logowań w 5~min \\
+\hline
+\texttt{ContainerRestarting} & Ponad 3 restarty kontenera w 15~min \\
+\hline
+\texttt{DatabaseConnectionsHigh} & Ponad 80\% limitu połączeń PostgreSQL przez 5~min \\
+\hline
+\texttt{DiskSpaceLow} & Mniej niż 10\% wolnego miejsca przez 10~min \\
+\hline
+\end{tabular}
+\end{table}
+
+Alert \texttt{Watchdog} jest aktywny przez cały czas i co 5~minut trafia do
+odbiorcy. Jego brak oznacza awarię samego monitoringu (Prometheusa,
+Alertmanagera albo połączenia między nimi), której zwykłe alerty nie mogłyby
+zgłosić. To samo rozwiązanie stosuje standardowy zestaw kube-prometheus.
+
+\subsubsection{Logi}
+
+Grafana Alloy odczytuje logi wszystkich kontenerów projektu przez API Dockera
+i wysyła je do Loki z etykietami \texttt{service} i \texttt{container}.
+Pierwotny plan zakładał narzędzie Promtail, ale Grafana wycofała je na rzecz
+Alloy. Logi backendu są w formacie JSON, więc w Grafanie (widok
+\emph{Explore}) można je filtrować po polach, np.
+\verb|{service="backend"} | json | requestId="…"|, i powiązać log żądania
+z błędem, który wystąpił podczas jego obsługi.
+
+\subsubsection{Test watchdogów (chaos test)}
+
+Skrypt \path{monitoring/chaos-test.sh} (\texttt{npm run chaos}) celowo psuje
+działający system i sprawdza, czy awaria zostaje wykryta i naprawiona albo
+zgłoszona. Wyniki przebiegu na komputerze deweloperskim (Docker Desktop,
+Windows) zawiera tabela~\ref{tab:chaos}.
+
+\begin{table}[htbp]
+\centering
+\caption{Wyniki testu watchdogów}
+\label{tab:chaos}
+\small
+\begin{tabular}{|p{0.3\textwidth}|p{0.57\textwidth}|}
+\hline
+\textbf{Awaria} & \textbf{Reakcja systemu} \\
+\hline
+Awaria procesu backendu (\texttt{kill -KILL} w kontenerze) &
+  Polityka restartu uruchomiła kontener po 3~s, stan \emph{healthy} po kolejnych 6~s \\
+\hline
+Zatrzymanie backendu (\texttt{docker stop}, \texttt{SIGTERM}) &
+  Łagodne zamknięcie w 2~s, kod wyjścia 0 \\
+\hline
+Zamrożenie procesu (\texttt{kill -STOP}) &
+  Po 44~s (3 nieudane healthchecki) Docker oznaczył kontener jako \emph{unhealthy},
+  autoheal zrestartował go po 14~s, po kolejnych 14~s kontener był \emph{healthy} \\
+\hline
+Zatrzymanie PostgreSQL &
+  Alert \texttt{ServiceDown} po 87~s (sonda co 15~s, warunek przez 1~min),
+  \texttt{PostgresDown} w tym samym czasie; po uruchomieniu bazy alert
+  wygasł w ciągu 20~s \\
+\hline
+Konfiguracja monitoringu & \texttt{promtool}: konfiguracja i 12 reguł poprawne;
+  \texttt{amtool}: konfiguracja poprawna \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Wnioski z testu.} Plan zakładał symulowanie awarii poleceniem
+\texttt{docker kill}. Pierwszy przebieg pokazał, że po nim kontener
+\emph{nie} wraca: Docker traktuje \texttt{docker kill} jak ręczne zatrzymanie,
+do którego polityka restartu się nie stosuje. Dotyczy ona tylko sytuacji, gdy
+proces zakończy się sam. Prawdziwą awarię (np. przerwanie procesu przez
+system z powodu braku pamięci) symuluje dopiero zabicie procesu Node.js
+wewnątrz kontenera. Ten sam przebieg ujawnił też dwa błędy samego skryptu:
+fałszywy wynik ,,OK'' przy odczycie danych zatrzymanego kontenera i alert
+pozostały po poprzednim scenariuszu, który zaburzał pomiar kolejnego.
+Poprawiony skrypt czeka na czysty stan przed każdym scenariuszem.

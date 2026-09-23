@@ -8,6 +8,7 @@ import {
 } from '@driver-docs/shared';
 import type { Request, Response } from 'express';
 import { ValidationError } from '../errors/app-error.js';
+import type { Metrics } from '../lib/metrics.js';
 import { readUpload } from '../middleware/upload.js';
 import type { DocumentService } from '../services/document.service.js';
 
@@ -25,8 +26,14 @@ function param(req: Request, name: string): string {
 
 /** HTTP handlers of `/api/documents`. All routes require authentication. */
 export class DocumentController {
-  /** @param service - Document logic. */
-  constructor(private readonly service: DocumentService) {}
+  /**
+   * @param service - Document logic.
+   * @param metrics - Application metrics (upload counter and size).
+   */
+  constructor(
+    private readonly service: DocumentService,
+    private readonly metrics: Metrics,
+  ) {}
 
   /**
    * `POST /api/documents` (multipart: `file`, `type`, `title`, `number?`, `changeNote?`)
@@ -38,6 +45,8 @@ export class DocumentController {
   create = async (req: Request, res: Response): Promise<void> => {
     const { data, file } = readUpload(req, createDocumentSchema);
     const document = await this.service.create(req.user!.id, data, file);
+    this.metrics.uploads.inc({ type: document.type });
+    this.metrics.uploadSize.observe(file.content.length);
     req.log.info(
       { documentId: document.id, mimeType: file.mimeType, sizeBytes: file.content.length },
       'Document uploaded',
@@ -56,6 +65,8 @@ export class DocumentController {
   addVersion = async (req: Request, res: Response): Promise<void> => {
     const { data, file } = readUpload(req, newVersionSchema);
     const document = await this.service.addVersion(req.user!.id, param(req, 'id'), data, file);
+    this.metrics.uploads.inc({ type: document.type });
+    this.metrics.uploadSize.observe(file.content.length);
     req.log.info(
       { documentId: document.id, versionNo: document.currentVersion },
       'Document version added',

@@ -6,8 +6,10 @@ import { AuthController } from './controllers/auth.controller.js';
 import { DocumentController } from './controllers/document.controller.js';
 import { HealthController } from './controllers/health.controller.js';
 import { ProfileController } from './controllers/profile.controller.js';
-import type { PrismaClient } from './lib/prisma.js';
+import { createMetrics } from './lib/metrics.js';
+import { onQuery, type PrismaClient } from './lib/prisma.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { httpMetrics } from './middleware/http-metrics.js';
 import { notFound } from './middleware/not-found.js';
 import { loginRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
@@ -53,7 +55,9 @@ export interface AppDependencies {
  * - `/api/profile` – the caller's driver profile (authenticated),
  * - `/api/documents` – the caller's documents: upload (encrypted in MinIO),
  *   versions, status and history, soft delete, download (authenticated),
- * - `/api/docs` – OpenAPI specification and Swagger UI.
+ * - `/api/docs` – OpenAPI specification and Swagger UI,
+ * - `/metrics` – Prometheus metrics (outside `/api`, so the frontend nginx does
+ *   not expose it; Prometheus scrapes it over the internal Docker network).
  *
  * `trust proxy` is set to `config.trustProxy` hops, so behind nginx `req.ip` (used
  * by the login rate limit) is the real client address from `X-Forwarded-For`.
@@ -66,15 +70,27 @@ export function createApp(deps: AppDependencies): Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
+  const metrics = createMetrics();
+  onQuery(prisma, (durationMs) => metrics.dbQueryDuration.observe(durationMs / 1000));
+
   app.use(requestLogger(logger));
+  app.use(httpMetrics(metrics));
   app.use(express.json({ limit: '1mb' }));
+
+  app.get('/metrics', async (_req, res) => {
+    res.set('Content-Type', metrics.registry.contentType);
+    res.send(await metrics.registry.metrics());
+  });
 
   const tokens = new TokenService(config.jwt);
   const authenticate = requireAuth(tokens);
   const users = new UserRepository(prisma);
 
   const healthRouter = createHealthRouter(
-    new HealthController(new HealthService(new HealthRepository(prisma, s3, config.s3.bucket))),
+    new HealthController(
+      new HealthService(new HealthRepository(prisma, s3, config.s3.bucket)),
+      config.eventLoopLagThresholdMs,
+    ),
   );
   app.use('/health', healthRouter);
   app.use('/api/health', healthRouter);
@@ -82,7 +98,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use(
     '/api/auth',
     createAuthRouter({
-      controller: new AuthController(new AuthService(users, tokens)),
+      controller: new AuthController(new AuthService(users, tokens), metrics),
       authenticate,
       loginRateLimit: loginRateLimit(config.loginRateLimitMax),
     }),
@@ -105,6 +121,7 @@ export function createApp(deps: AppDependencies): Express {
           new StorageRepository(s3, config.s3.bucket),
           new EncryptionService(config.masterEncryptionKey),
         ),
+        metrics,
       ),
       authenticate,
     ),

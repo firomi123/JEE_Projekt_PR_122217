@@ -1,5 +1,6 @@
 import { loginSchema, registerSchema } from '@driver-docs/shared';
-import { Router, type RequestHandler } from 'express';
+import type { Router, RequestHandler } from 'express';
+import { createRouter } from './router.js';
 import type { AuthController } from '../controllers/auth.controller.js';
 import { validateBody } from '../middleware/validate-body.js';
 
@@ -22,7 +23,7 @@ export interface AuthRouterDeps {
  * @returns An Express router meant to be mounted at `/api/auth`.
  */
 export function createAuthRouter(deps: AuthRouterDeps): Router {
-  const router = Router();
+  const router = createRouter();
   router.post('/register', validateBody(registerSchema), deps.controller.register);
   router.post('/login', deps.loginRateLimit, validateBody(loginSchema), deps.controller.login);
   router.get('/me', deps.authenticate, deps.controller.me);

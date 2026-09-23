@@ -1,0 +1,9 @@
+# Blackbox exporter modules used by Prometheus (job "blackbox").
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      # Empty list = any 2xx status is a success.
+      valid_status_codes: []
+      preferred_ip_protocol: ip4

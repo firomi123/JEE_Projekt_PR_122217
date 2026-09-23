@@ -5,6 +5,9 @@ import { createLogger } from './lib/logger.js';
 import { createPrismaClient } from './lib/prisma.js';
 import { createS3Client } from './lib/s3.js';
 
+/** Maximum time a graceful shutdown may take before the process is killed. */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
 /**
  * Validates the environment or terminates the process.
  *
@@ -26,13 +29,61 @@ function loadConfigOrExit(): Config {
 
 const config = loadConfigOrExit();
 const logger = createLogger(config);
-const app = createApp({
-  config,
-  logger,
-  prisma: createPrismaClient(config.databaseUrl),
-  s3: createS3Client(config.s3),
-});
+const prisma = createPrismaClient(config.databaseUrl);
+const s3 = createS3Client(config.s3);
+const app = createApp({ config, logger, prisma, s3 });
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, `${APP_NAME} API listening`);
+});
+// A client may not take longer than this to send a request (slow-loris protection);
+// uploads of 10 MB over a slow mobile link still fit.
+server.requestTimeout = 60_000;
+server.headersTimeout = 20_000;
+
+let shuttingDown = false;
+
+/**
+ * Graceful shutdown: stops accepting connections, lets in-flight requests finish,
+ * then closes the database pool and the S3 client. If that takes longer than
+ * {@link SHUTDOWN_TIMEOUT_MS}, the process exits anyway.
+ *
+ * @param signal - Signal that triggered the shutdown (for the log).
+ * @param exitCode - Exit code after a clean shutdown (0 for signals, 1 for crashes).
+ * Side effects: terminates the process.
+ */
+function shutdown(signal: string, exitCode: number): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, 'Shutting down');
+  setTimeout(() => {
+    logger.error('Graceful shutdown timed out, exiting');
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS).unref();
+
+  server.close(() => {
+    void prisma
+      .$disconnect()
+      .catch((error: unknown) => logger.error({ err: error }, 'Error closing the database pool'))
+      .finally(() => {
+        s3.destroy();
+        logger.info('Shutdown complete');
+        process.exit(exitCode);
+      });
+  });
+  server.closeIdleConnections();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM', 0));
+process.on('SIGINT', () => shutdown('SIGINT', 0));
+
+// Fail fast: after an unexpected error the process state is unknown, so it is not
+// allowed to keep serving. Docker (restart: unless-stopped) starts a fresh one.
+process.on('uncaughtException', (error) => {
+  logger.fatal({ err: error }, 'Uncaught exception, exiting');
+  shutdown('uncaughtException', 1);
+});
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ err: reason }, 'Unhandled promise rejection, exiting');
+  shutdown('unhandledRejection', 1);
 });

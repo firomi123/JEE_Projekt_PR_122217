@@ -1,5 +1,6 @@
 import { updateDocumentSchema } from '@driver-docs/shared';
-import { Router, type RequestHandler } from 'express';
+import type { Router, RequestHandler } from 'express';
+import { createRouter } from './router.js';
 import type { DocumentController } from '../controllers/document.controller.js';
 import { validateBody } from '../middleware/validate-body.js';
 import { documentUpload } from '../middleware/upload.js';
@@ -24,7 +25,7 @@ export function createDocumentsRouter(
   controller: DocumentController,
   authenticate: RequestHandler,
 ): Router {
-  const router = Router();
+  const router = createRouter();
   router.use(authenticate);
   router.get('/', controller.list);
   router.post('/', documentUpload(), controller.create);

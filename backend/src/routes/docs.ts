@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import type { Router } from 'express';
+import { createRouter } from './router.js';
 import swaggerUi from 'swagger-ui-express';
 import { buildOpenApiDocument } from '../docs/openapi.js';
 
@@ -11,7 +12,7 @@ import { buildOpenApiDocument } from '../docs/openapi.js';
  */
 export function createDocsRouter(): Router {
   const document = buildOpenApiDocument();
-  const router = Router();
+  const router = createRouter();
   router.get('/openapi.json', (_req, res) => {
     res.json(document);
   });
