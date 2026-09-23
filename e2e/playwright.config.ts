@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { COVERAGE_ENABLED } from './coverage';
 import { E2E_BACKEND_PORT, E2E_FRONTEND_PORT, e2eBackendEnv } from './env';
 
 /**
@@ -13,6 +14,7 @@ const baseURL = externalBaseUrl ?? `http://localhost:${E2E_FRONTEND_PORT}`;
 export default defineConfig({
   testDir: './tests',
   globalSetup: externalBaseUrl ? undefined : './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
   fullyParallel: true,
   // One worker: every registration and login costs an argon2id hash (64 MiB,
   // 3 passes), and the camera tests decode and compress 12-megapixel photos, all
@@ -61,6 +63,8 @@ export default defineConfig({
           cwd: '../frontend',
           env: {
             API_PROXY_TARGET: `http://localhost:${E2E_BACKEND_PORT}`,
+            // Source maps only for coverage runs (never in the production image).
+            ...(COVERAGE_ENABLED ? { E2E_COVERAGE: '1' } : {}),
             FRONTEND_DEV_PORT: String(E2E_FRONTEND_PORT),
           },
           url: baseURL,

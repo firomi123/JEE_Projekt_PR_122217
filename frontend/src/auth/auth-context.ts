@@ -10,6 +10,12 @@ export interface AuthContextValue {
   /** Message to show on the login screen after an automatic logout, if any. */
   logoutReason: string | null;
   /**
+   * `true` right after the user logged out with the button. Guards then do not
+   * remember the page to return to: the next person to log in on this device
+   * should start at the document list, not at the previous user's page.
+   */
+  loggedOutByUser: boolean;
+  /**
    * Logs in with username and password and stores the session.
    * @throws {ApiError} On invalid credentials, rate limiting or network errors.
    */

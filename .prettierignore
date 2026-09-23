@@ -8,3 +8,4 @@ package-lock.json
 docs/sprawozdanie
 *.md
 backend/src/generated
+e2e/coverage-e2e

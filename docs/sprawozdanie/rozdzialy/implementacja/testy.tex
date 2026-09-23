@@ -358,4 +358,74 @@ monitoring:check}). Działanie watchdogów na działającym stosie sprawdza skry
 \path{monitoring/chaos-test.sh} (\texttt{npm run chaos}), opisany
 w podrozdziale~\ref{sec:monitoring}.
 
-\douzupelnienia{pełny scenariusz na stosie Docker, raport pokrycia; Etap 12}
+\subsubsection{Pełny scenariusz i testy na stosie Docker}
+
+Test \texttt{full-scenario.spec.ts} przechodzi całą ścieżkę kierowcy w jednej
+sesji przeglądarki: rejestracja, uzupełnienie profilu, zdjęcie dokumentu
+aparatem z obrotem i kompresją, zapis dokumentu, nowa wersja (PDF), przesłanie
+dokumentu i sprawdzenie statusu na liście z filtrem, pobranie obu wersji
+(sprawdzana jest treść pliku PDF i sygnatura JPEG zdjęcia), wylogowanie
+i ponowne zalogowanie. Cały zestaw 31 scenariuszy Playwright przechodzi
+zarówno na lokalnie uruchamianym backendzie, jak i na pełnym stosie Docker
+za serwerem nginx (\texttt{E2E\_BASE\_URL=http://localhost:8090}), czyli
+na tej samej konfiguracji, która jest wdrażana.
+
+Pełny scenariusz wykrył kolejny błąd. Po wylogowaniu przyciskiem i ponownym
+zalogowaniu aplikacja przenosiła użytkownika na stronę, z której się
+wylogował, zamiast na listę dokumentów. Strażnik tras zapamiętywał tę stronę
+jako ,,adres powrotu'', co ma sens po wygaśnięciu sesji, ale nie po świadomym
+wylogowaniu. Na współdzielonym telefonie następny kierowca trafiałby po
+zalogowaniu na adres cudzego dokumentu. Najpierw dodano test, który ten błąd
+odtwarza (nie przechodził). Następnie kontekst uwierzytelnienia zaczął
+rozróżniać wylogowanie przyciskiem od automatycznego, a strażnik zapamiętuje
+adres powrotu tylko w drugim przypadku.
+
+\subsubsection{Pokrycie kodu}
+
+Pokrycie mierzy Vitest z modułem V8 (\texttt{npm run test:coverage}).
+Dla frontendu, którego interfejs jest sprawdzany głównie testami w przeglądarce,
+mierzone jest dodatkowo pokrycie kodu przez testy Playwright
+(\texttt{npm run test:e2e:coverage}). Chromium zbiera pokrycie V8 każdej
+strony, a biblioteka monocart-coverage-reports mapuje je przez mapy źródeł na
+pliki \path{frontend/src}. Mapy źródeł są generowane tylko na potrzeby tego
+pomiaru i nie trafiają do obrazu produkcyjnego. Wyniki zawiera
+tabela~\ref{tab:pokrycie}.
+
+\begin{table}[htbp]
+\centering
+\caption{Pokrycie kodu testami}
+\label{tab:pokrycie}
+\small
+\begin{tabular}{|p{0.36\textwidth}|r|r|r|r|}
+\hline
+\textbf{Pakiet (rodzaj testów)} & \textbf{Instrukcje} & \textbf{Gałęzie} & \textbf{Funkcje} & \textbf{Linie} \\
+\hline
+Backend (funkcjonalne API i jednostkowe, 158 testów) & 95,2\,\% & 84,7\,\% & 97,1\,\% & 96,4\,\% \\
+\hline
+Pakiet \texttt{shared} (jednostkowe, 90 testów) & 96,1\,\% & 85,7\,\% & 100\,\% & 96,1\,\% \\
+\hline
+Frontend (Playwright, 31 scenariuszy) & 93,9\,\% & 82,8\,\% & 90,8\,\% & 92,1\,\% \\
+\hline
+Frontend (tylko jednostkowe, 46 testów) & 12,3\,\% & 13,2\,\% & 7,6\,\% & -- \\
+\hline
+\end{tabular}
+\end{table}
+
+Niskie pokrycie frontendu samymi testami jednostkowymi jest zamierzone:
+testy jednostkowe dotyczą czystej logiki (obliczenia kompresji, kontrola
+pliku, formatowanie, mapowanie błędów), a komponenty są sprawdzane
+w przeglądarce, tak jak używa ich kierowca. Z pomiaru backendu wyłączono
+wygenerowany kod klienta Prisma i plik startowy \texttt{server.ts}, który
+jest sprawdzany testem uruchamiającym proces serwera i testem watchdogów.
+
+\subsubsection{Ciągła integracja}
+
+Plik \path{.github/workflows/ci.yml} definiuje potok GitHub Actions uruchamiany
+przy każdym \emph{pushu} i \emph{pull requeście}. Składa się z czterech zadań:
+kontrola kodu (lint, typy, build, konfiguracja monitoringu); testy jednostkowe
+i funkcjonalne z pokryciem na bazie i MinIO z \texttt{docker-compose.test.yml};
+testy Playwright z pokryciem; zbudowanie i uruchomienie całego stosu Docker
+z oczekiwaniem na stan \emph{healthy} i testem przez nginx. Raporty trafiają
+do artefaktów. Poprawność pliku sprawdzono narzędziem \texttt{actionlint}.
+Potok nie był uruchomiony, bo repozytorium nie ma jeszcze zdalnej kopii
+w serwisie GitHub.

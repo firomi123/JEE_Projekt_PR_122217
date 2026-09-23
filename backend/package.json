@@ -14,7 +14,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:coverage": "prisma generate && vitest run --coverage"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1138.0",

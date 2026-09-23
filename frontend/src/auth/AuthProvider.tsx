@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initial] = useState(() => readSession());
   const [session, setSession] = useState<StoredSession | null>(initial);
   const [logoutReason, setLogoutReason] = useState<string | null>(null);
+  const [loggedOutByUser, setLoggedOutByUser] = useState(false);
 
   const logout = useCallback(
     (reason?: string) => {
@@ -34,6 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearSession();
       setSession(null);
       setLogoutReason(reason ?? null);
+      // Without a reason the user pressed "log out"; with one it was automatic.
+      setLoggedOutByUser(reason === undefined);
       queryClient.clear();
     },
     [queryClient],
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(next.token);
     writeSession(next);
     setLogoutReason(null);
+    setLoggedOutByUser(false);
     setSession(next);
   }, []);
 
@@ -78,10 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       token: session?.token ?? null,
       logoutReason,
+      loggedOutByUser,
       login,
       logout,
     }),
-    [session, logoutReason, login, logout],
+    [session, logoutReason, loggedOutByUser, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

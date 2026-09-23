@@ -72,8 +72,17 @@ export default defineConfig({
     strictPort: true,
     proxy,
   },
+  // Source maps only for the end-to-end coverage run (E2E_COVERAGE=1); the
+  // production bundle does not publish the original sources.
+  build: { sourcemap: process.env.E2E_COVERAGE === '1' },
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx', 'src/vite-env.d.ts'],
+      reporter: ['text-summary', 'html', 'json-summary'],
+    },
   },
 });

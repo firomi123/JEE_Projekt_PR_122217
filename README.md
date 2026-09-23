@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 11 – monitoring i watchdogi (metryki, dashboardy, alerty, logi, autoheal).** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
+> Stan: **Etap 12 – komplet testów: jednostkowe, funkcjonalne API, E2E (także na stosie Docker), pokrycie kodu, CI.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
 
 ## Struktura
 
@@ -78,6 +78,8 @@ Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komp
 | `npm test`                                          | Testy Vitest we wszystkich pakietach (backend wymaga `npm run test:infra:up`)                                                                |
 | `npm run db:migrate -w backend -- --name <zmiana>`  | Nowa migracja Prisma po zmianie `backend/prisma/schema.prisma`                                                                               |
 | `npm run test:e2e`                                  | Testy Playwright (przed pierwszym uruchomieniem: `npm run install:browsers -w e2e`)                                                          |
+| `npm run test:coverage`                             | Testy Vitest z raportem pokrycia (`*/coverage/index.html`)                                                                                   |
+| `npm run test:e2e:coverage`                         | Testy Playwright z pokryciem kodu frontendu (`e2e/coverage-e2e/index.html`)                                                                  |
 | `npm run env:init`                                  | Tworzy `.env` z `.env.example` i generuje sekrety                                                                                            |
 | `npm run docker:up` / `docker:down` / `docker:logs` | Start (z budowaniem, czeka na `healthy`), zatrzymanie i logi całego stosu                                                                    |
 | `npm run test:infra:up` / `test:infra:down`         | Tymczasowe PostgreSQL (5433) i MinIO (9100) dla testów, dane w tmpfs                                                                         |

@@ -20,7 +20,9 @@
     "format": "prettier --write .",
     "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build:shared && npm run test --workspaces --if-present",
+    "test:coverage": "npm run build:shared && npm run test:coverage --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w e2e",
+    "test:e2e:coverage": "npm run test:e2e:coverage -w e2e",
     "docs:report": "node scripts/build-report.mjs",
     "env:init": "node scripts/init-env.mjs",
     "docker:up": "docker compose up -d --build --wait",
@@ -33,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^5.0.1",
     "concurrently": "^10.0.5",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",

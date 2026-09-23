@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
   fillLogin,
   PASSWORD,
@@ -82,6 +82,18 @@ test.describe('login and logout', () => {
     await expect(page).toHaveURL('/logowanie');
     await page.goto('/');
     await expect(page).toHaveURL('/logowanie');
+  });
+
+  test('after an explicit logout, the next login starts at the document list', async ({ page }) => {
+    const username = await registerThroughUi(page);
+    await page.getByRole('link', { name: 'Profil' }).click();
+    await expect(page).toHaveURL('/profil');
+
+    await page.getByRole('button', { name: 'Wyloguj' }).click();
+    await expect(page).toHaveURL('/logowanie');
+    await fillLogin(page, username);
+
+    await expect(page).toHaveURL('/');
   });
 
   test('keeps the session after reloading the page', async ({ page }) => {

@@ -10,15 +10,17 @@ export interface RedirectState {
 /**
  * Route guard: renders its children only for a logged-in user; otherwise
  * redirects to the login screen, remembering the requested address so the user
- * returns there after logging in.
+ * returns there after logging in (an opened link, an expired session). After an
+ * explicit logout nothing is remembered, so the next login starts at the list.
  *
  * @param props.children - Protected content.
  * @returns The children, or a redirect to `/logowanie`.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, loggedOutByUser } = useAuth();
   const location = useLocation();
   if (!user) {
+    if (loggedOutByUser) return <Navigate to="/logowanie" replace />;
     const state: RedirectState = { from: location.pathname + location.search };
     return <Navigate to="/logowanie" replace state={state} />;
   }

@@ -7,11 +7,13 @@
   "scripts": {
     "test:e2e": "playwright test --pass-with-no-tests",
     "install:browsers": "playwright install chromium",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:e2e:coverage": "node run-coverage.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
+    "monocart-coverage-reports": "^2.13.0",
     "typescript": "~6.0"
   }
 }
