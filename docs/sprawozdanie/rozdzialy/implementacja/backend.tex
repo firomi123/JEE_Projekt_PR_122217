@@ -151,6 +151,10 @@ POST & \texttt{/api/auth/login} & Logowanie, zwraca token JWT \\
 \hline
 GET & \texttt{/api/auth/me} & Dane zalogowanego użytkownika (wymaga tokenu) \\
 \hline
+GET & \texttt{/api/profile} & Profil zalogowanego kierowcy (wymaga tokenu) \\
+\hline
+PUT & \texttt{/api/profile} & Zmiana profilu (wymaga tokenu) \\
+\hline
 GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
 \hline
 \end{tabular}
@@ -214,15 +218,40 @@ adres klienta z nagłówka \texttt{X-Forwarded-For}. Bez tego wszyscy
 użytkownicy mieliby adres nginx i dzieliliby jeden limit. Liczniki są
 przechowywane w pamięci procesu, co wystarcza przy jednej instancji API.
 
+\subsubsection{Profil kierowcy}
+
+Każde konto ma dokładnie jeden profil kierowcy z imieniem, nazwiskiem,
+telefonem, numerem prawa jazdy i nazwą firmy przewozowej. Profil jest tworzony
+razem z kontem, w jednej operacji zapisu do bazy danych, więc nie może
+powstać konto bez profilu. Endpoint \texttt{/api/profile} zawsze dotyczy
+profilu zalogowanego użytkownika, wskazanego przez token. W adresie nie ma
+identyfikatora, więc nie da się nawet zaadresować cudzego profilu, a pola
+takie jak \texttt{userId} w treści żądania są ignorowane.
+
+\texttt{GET} zwraca profil, a \texttt{PUT} zastępuje go w całości: pole
+pominięte, puste lub \texttt{null} jest czyszczone. Formularz profilu
+(Etap~8) wysyła wszystkie pola naraz, więc taka semantyka jest prosta
+i jednoznaczna. Reguły
+walidacji znajdują się we wspólnym schemacie Zod. Imię i nazwisko mogą
+zawierać litery (także polskie), spację, myślnik i apostrof. Telefon to 9--15
+cyfr z opcjonalnym znakiem \texttt{+}; spacje, myślniki i nawiasy wpisane dla
+czytelności są usuwane, więc \texttt{+48 601-234-567} zostaje zapisany jako
+\texttt{+48601234567}. Numer prawa jazdy jest zamieniany na wielkie litery.
+Jeśli konto zostało usunięte, a token jest jeszcze ważny, API odpowiada 401,
+tak samo jak \texttt{/api/auth/me}.
+
 \subsubsection{Dokumentacja API}
 
 Specyfikacja API w formacie OpenAPI 3.0 jest dostępna pod adresem
 \path{/api/docs/openapi.json}, a interaktywna dokumentacja Swagger UI pod
 \texttt{/api/docs}. Można w niej wykonać żądania, także z tokenem JWT
-(przycisk \emph{Authorize}). Schematy treści żądań są generowane automatycznie
-z tych samych schematów Zod, które sprawdzają dane
-(\texttt{z.toJSONSchema}), więc dokumentacja zawsze opisuje faktycznie
-stosowane reguły. Test funkcjonalny sprawdza, czy specyfikacja zawiera
+(przycisk \emph{Authorize}). Schematy treści żądań rejestracji i logowania są
+generowane automatycznie z tych samych schematów Zod, które sprawdzają dane
+(\texttt{z.toJSONSchema}), więc dokumentacja opisuje faktycznie stosowane
+reguły. Schemat profilu jest opisany ręcznie, ponieważ jego walidacja
+najpierw normalizuje wartości (np. usuwa spacje z numeru telefonu), a taki
+schemat po przekształceniu traci w dokumentacji ograniczenia. Limity długości
+pochodzą jednak ze wspólnej stałej \texttt{PROFILE\_LIMITS}. Test funkcjonalny sprawdza, czy specyfikacja zawiera
 dokładnie oczekiwaną listę endpointów. Dodanie endpointu wymaga więc
 uzupełnienia tej listy w teście, co przypomina o dopisaniu go do
 dokumentacji.

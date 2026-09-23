@@ -20,6 +20,8 @@ describe('API documentation', () => {
         'POST /api/auth/register',
         'POST /api/auth/login',
         'GET /api/auth/me',
+        'GET /api/profile',
+        'PUT /api/profile',
       ].sort(),
     );
   });

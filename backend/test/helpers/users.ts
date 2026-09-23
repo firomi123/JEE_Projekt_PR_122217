@@ -35,7 +35,8 @@ function cachedHash(password: string): Promise<string> {
 
 /**
  * Inserts a user directly into the database, bypassing the API, with a real
- * argon2 hash so the user can log in.
+ * argon2 hash so the user can log in, and an empty driver profile (as registration
+ * creates one).
  *
  * Unique (lowercase) username and e-mail are generated unless given.
  *
@@ -51,6 +52,7 @@ export async function createUser(prisma: PrismaClient, input: TestUserInput = {}
       username: input.username ?? `driver_${suffix}`,
       email: input.email ?? `driver_${suffix}@example.com`,
       passwordHash: await cachedHash(input.password ?? DEFAULT_PASSWORD),
+      profile: { create: {} },
     },
   });
 }

@@ -1,4 +1,4 @@
-import { APP_NAME, loginSchema, registerSchema } from '@driver-docs/shared';
+import { APP_NAME, loginSchema, PROFILE_LIMITS, registerSchema } from '@driver-docs/shared';
 import { z } from 'zod';
 
 /**
@@ -37,8 +37,11 @@ const errorResponse = (description: string) => jsonResponse(description, 'ErrorR
  * Builds the OpenAPI 3.0 specification of the REST API, served at
  * `/api/docs/openapi.json` and rendered by Swagger UI at `/api/docs`.
  *
- * Request body schemas are generated from the shared Zod schemas, so the documented
- * validation rules are exactly the ones the API enforces. Every new endpoint must be
+ * The registration and login body schemas are generated from the shared Zod
+ * schemas, so the documented rules are exactly the ones the API enforces. The
+ * profile body is described by hand, because its Zod schema normalizes values
+ * before validating them and the generated input schema would lose the limits
+ * (the limits come from the shared `PROFILE_LIMITS`). Every new endpoint must be
  * added here (a functional test checks the list of documented paths).
  *
  * @returns The OpenAPI document as a plain object.
@@ -57,6 +60,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
     tags: [
       { name: 'health', description: 'Stan usługi' },
       { name: 'auth', description: 'Rejestracja i logowanie' },
+      { name: 'profile', description: 'Profil kierowcy' },
     ],
     paths: {
       '/health': {
@@ -121,6 +125,31 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           },
         },
       },
+      '/api/profile': {
+        get: {
+          tags: ['profile'],
+          summary: 'Profil zalogowanego kierowcy',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: jsonResponse('Profil', 'ProfileResponse'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+          },
+        },
+        put: {
+          tags: ['profile'],
+          summary: 'Zastąpienie profilu (pominięte lub puste pola są czyszczone)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: ref('ProfileRequest') } },
+          },
+          responses: {
+            200: jsonResponse('Zaktualizowany profil', 'ProfileResponse'),
+            400: errorResponse('Niepoprawne dane (VALIDATION_ERROR, szczegóły pól w details)'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+          },
+        },
+      },
     },
     components: {
       securitySchemes: {
@@ -153,6 +182,64 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             expiresIn: { type: 'integer', description: 'Czas życia tokenu w sekundach' },
             user: ref('User'),
           },
+        },
+        ProfileRequest: {
+          type: 'object',
+          description:
+            'Każde pole jest opcjonalne; brak pola, null lub pusty tekst czyści wartość.',
+          properties: {
+            firstName: {
+              type: 'string',
+              nullable: true,
+              maxLength: PROFILE_LIMITS.firstName,
+              description: 'Litery (także polskie), spacja, myślnik, apostrof',
+              example: 'Jan',
+            },
+            lastName: {
+              type: 'string',
+              nullable: true,
+              maxLength: PROFILE_LIMITS.lastName,
+              description: 'Litery (także polskie), spacja, myślnik, apostrof',
+              example: 'Kowalski',
+            },
+            phone: {
+              type: 'string',
+              nullable: true,
+              description: '9–15 cyfr, opcjonalnie + na początku; spacje i myślniki są usuwane',
+              example: '+48 601 234 567',
+            },
+            licenseNumber: {
+              type: 'string',
+              nullable: true,
+              minLength: 4,
+              maxLength: PROFILE_LIMITS.licenseNumber,
+              description: 'Litery, cyfry, / i -; zamieniane na wielkie litery',
+              example: '00123/15/1465',
+            },
+            companyName: {
+              type: 'string',
+              nullable: true,
+              maxLength: PROFILE_LIMITS.companyName,
+              example: 'Trans-Pol Sp. z o.o.',
+            },
+          },
+        },
+        Profile: {
+          type: 'object',
+          required: ['firstName', 'lastName', 'phone', 'licenseNumber', 'companyName', 'updatedAt'],
+          properties: {
+            firstName: { type: 'string', nullable: true },
+            lastName: { type: 'string', nullable: true },
+            phone: { type: 'string', nullable: true, example: '+48601234567' },
+            licenseNumber: { type: 'string', nullable: true },
+            companyName: { type: 'string', nullable: true },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        ProfileResponse: {
+          type: 'object',
+          required: ['profile'],
+          properties: { profile: ref('Profile') },
         },
         LivenessResponse: {
           type: 'object',

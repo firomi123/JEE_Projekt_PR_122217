@@ -63,7 +63,8 @@ export class UserRepository {
   }
 
   /**
-   * Inserts a user.
+   * Inserts a user together with an empty driver profile, atomically (one nested
+   * write, so an account never exists without its profile).
    *
    * @param data - Normalized username and e-mail plus the password hash.
    * @returns The created user.
@@ -72,7 +73,7 @@ export class UserRepository {
    */
   async create(data: NewUser): Promise<User> {
     try {
-      return await this.prisma.user.create({ data });
+      return await this.prisma.user.create({ data: { ...data, profile: { create: {} } } });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = JSON.stringify(error.meta ?? {});

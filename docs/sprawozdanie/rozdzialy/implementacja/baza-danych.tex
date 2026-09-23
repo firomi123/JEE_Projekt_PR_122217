@@ -52,5 +52,64 @@ da się ich odgadnąć, a to ma znaczenie przy adresach dokumentów w API.
 \end{tabular}
 \end{table}
 
-\douzupelnienia{diagram ERD i tabele profilu kierowcy, dokumentów, wersji
-i historii zmian; Etapy 5--6}
+Druga migracja (\texttt{driver\_profile}) dodaje tabelę
+\texttt{driver\_profiles} z danymi kierowcy (tabela~\ref{tab:profiles}).
+Relacja z tabelą \texttt{users} jest jeden do jednego
+(rysunek~\ref{fig:erd}): unikalny klucz obcy \texttt{user\_id} gwarantuje, że
+konto ma najwyżej jeden profil. Klauzula \texttt{ON DELETE CASCADE} usuwa profil
+razem z kontem. Wszystkie dane kierowcy są opcjonalne, bo profil powstaje
+automatycznie przy rejestracji, zanim kierowca go wypełni. Długości kolumn są
+równe limitom w schemacie walidacji, więc poprawne dane zawsze mieszczą się
+w bazie.
+
+Migracja zawiera też ręcznie dopisaną instrukcję, która tworzy pusty profil dla
+każdego istniejącego już konta:
+
+\begin{small}
+\begin{verbatim}
+INSERT INTO "driver_profiles" ("id", "user_id", "updated_at")
+SELECT gen_random_uuid(), "id", CURRENT_TIMESTAMP FROM "users";
+\end{verbatim}
+\end{small}
+
+\noindent Dzięki temu zasada ,,każde konto ma profil'' obowiązuje także dla kont
+założonych przed wprowadzeniem profili, a kod aplikacji nie musi obsługiwać
+braku profilu.
+
+\begin{table}[htbp]
+\centering
+\caption{Tabela \texttt{driver\_profiles}}
+\label{tab:profiles}
+\small
+\begin{tabular}{|l|l|p{0.4\textwidth}|}
+\hline
+\textbf{Kolumna} & \textbf{Typ} & \textbf{Opis} \\
+\hline
+\texttt{id} & \texttt{UUID} & Klucz główny \\
+\hline
+\texttt{user\_id} & \texttt{UUID} & Właściciel, klucz obcy do \texttt{users}, unikalny \\
+\hline
+\texttt{first\_name} & \texttt{VARCHAR(50)} & Imię \\
+\hline
+\texttt{last\_name} & \texttt{VARCHAR(80)} & Nazwisko \\
+\hline
+\texttt{phone} & \texttt{VARCHAR(16)} & Telefon w postaci znormalizowanej, np. \texttt{+48601234567} \\
+\hline
+\texttt{license\_number} & \texttt{VARCHAR(20)} & Numer prawa jazdy \\
+\hline
+\texttt{company\_name} & \texttt{VARCHAR(120)} & Firma przewozowa \\
+\hline
+\texttt{created\_at}, \texttt{updated\_at} & \texttt{TIMESTAMPTZ} & Data utworzenia i ostatniej zmiany \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{diagramy/erd.png}
+\caption{Diagram ERD bazy danych}
+\label{fig:erd}
+\end{figure}
+
+\douzupelnienia{tabele dokumentów, wersji i historii zmian, rozszerzenie
+diagramu ERD; Etap 6}

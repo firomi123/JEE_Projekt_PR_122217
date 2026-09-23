@@ -99,6 +99,31 @@ wliczanie udanych logowań do limitu i brak zamiany loginu na małe litery.
 Każdą z nich wykryły testy (od jednego do dwóch nieprzechodzących testów na
 usterkę).
 
+\subsubsection{Testy profilu kierowcy}
+
+W Etapie 5 testy funkcjonalne profilu (11 testów) napisano i uruchomiono
+\emph{przed} implementacją endpointów. Dziesięć z nich nie przechodziło
+z oczekiwanego powodu (404, brak endpointów). Jedenasty, sprawdzający
+usuwanie profilu razem z kontem, przechodził od razu, bo to zachowanie
+zapewnia już klucz obcy z \texttt{ON DELETE CASCADE} w bazie danych. Po
+implementacji przechodziły wszystkie. Później doszedł dwunasty test, opisany
+niżej. Testy sprawdzają:
+utworzenie pustego profilu przy rejestracji i jego usunięcie razem z kontem;
+odczyt i zmianę własnego profilu z normalizacją danych; zapis polskich znaków
+bez zmian; czyszczenie pominiętych pól przez \texttt{PUT}; niezależność
+profili dwóch użytkowników; ignorowanie pola \texttt{userId} wskazującego
+cudze konto; 400 ze szczegółami pól bez zmiany danych; 401 bez tokenu i dla
+usuniętego konta. Testy jednostkowe schematu profilu (27 testów) obejmują
+m.in. normalizację numerów telefonów, granice długości pól i dozwolone znaki.
+
+Podczas ręcznego sprawdzania przez \texttt{curl} w konsoli Git Bash na
+Windowsie imię ,,Łukasz'' wróciło jako ,,Lukasz''. Zanim uznano to za błąd
+aplikacji, powtórzono żądanie skryptem w Pythonie wysyłającym dane w UTF-8
+i dane wróciły bez zmian. Przyczyną była konwersja znaków argumentów wiersza
+poleceń w konsoli Windows, a nie aplikacja. Mimo to dodano test funkcjonalny
+z polskimi znakami, żeby ta własność była sprawdzana przy każdym uruchomieniu
+testów.
+
 \douzupelnienia{testy funkcjonalne kolejnych etapów, testy Playwright,
 raport pokrycia, przykład naprawy błędu metodą test, potem poprawka;
-Etapy 5--12}
+Etapy 6--12}

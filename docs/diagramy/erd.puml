@@ -1,0 +1,33 @@
+@startuml erd
+' Diagram ERD bazy danych (PostgreSQL); przy każdej zmianie backend/prisma/schema.prisma trzeba go zaktualizować
+skinparam dpi 200
+skinparam shadowing false
+skinparam linetype ortho
+hide circle
+hide methods
+
+entity "users" as users {
+  * id : UUID <<PK>>
+  --
+  * username : VARCHAR(30) <<unique>>
+  * email : VARCHAR(254) <<unique>>
+  * password_hash : TEXT
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+entity "driver_profiles" as profiles {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK, unique>>
+  first_name : VARCHAR(50)
+  last_name : VARCHAR(80)
+  phone : VARCHAR(16)
+  license_number : VARCHAR(20)
+  company_name : VARCHAR(120)
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+}
+
+users ||--|| profiles : "ON DELETE CASCADE"
+@enduml

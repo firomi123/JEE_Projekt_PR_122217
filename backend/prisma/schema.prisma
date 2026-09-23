@@ -24,5 +24,24 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  profile DriverProfile?
+
   @@map("users")
+}
+
+/// Driver profile, exactly one per user (created together with the account).
+/// Every field is optional until the driver fills it in.
+model DriverProfile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName     String?  @map("first_name") @db.VarChar(50)
+  lastName      String?  @map("last_name") @db.VarChar(80)
+  phone         String?  @db.VarChar(16)
+  licenseNumber String?  @map("license_number") @db.VarChar(20)
+  companyName   String?  @map("company_name") @db.VarChar(120)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("driver_profiles")
 }

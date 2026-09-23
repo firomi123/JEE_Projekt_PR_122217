@@ -4,6 +4,7 @@ import type { Logger } from 'pino';
 import type { Config } from './config/env.js';
 import { AuthController } from './controllers/auth.controller.js';
 import { HealthController } from './controllers/health.controller.js';
+import { ProfileController } from './controllers/profile.controller.js';
 import type { PrismaClient } from './lib/prisma.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { notFound } from './middleware/not-found.js';
@@ -11,12 +12,15 @@ import { loginRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { requireAuth } from './middleware/require-auth.js';
 import { HealthRepository } from './repositories/health.repository.js';
+import { ProfileRepository } from './repositories/profile.repository.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createDocsRouter } from './routes/docs.js';
 import { createHealthRouter } from './routes/health.js';
+import { createProfileRouter } from './routes/profile.js';
 import { AuthService } from './services/auth.service.js';
 import { HealthService } from './services/health.service.js';
+import { ProfileService } from './services/profile.service.js';
 import { TokenService } from './services/token.service.js';
 
 /** External resources the application is built from (created in `server.ts` or by tests). */
@@ -40,6 +44,7 @@ export interface AppDependencies {
  * - `/health`, `/api/health` – liveness and readiness (the `/api` copy is what the
  *   frontend nginx forwards, since it proxies `/api/*` unchanged),
  * - `/api/auth` – registration, login (rate limited), current user,
+ * - `/api/profile` – the caller's driver profile (authenticated),
  * - `/api/docs` – OpenAPI specification and Swagger UI.
  *
  * `trust proxy` is set to `config.trustProxy` hops, so behind nginx `req.ip` (used
@@ -57,6 +62,7 @@ export function createApp(deps: AppDependencies): Express {
   app.use(express.json({ limit: '1mb' }));
 
   const tokens = new TokenService(config.jwt);
+  const authenticate = requireAuth(tokens);
   const users = new UserRepository(prisma);
 
   const healthRouter = createHealthRouter(
@@ -69,9 +75,17 @@ export function createApp(deps: AppDependencies): Express {
     '/api/auth',
     createAuthRouter({
       controller: new AuthController(new AuthService(users, tokens)),
-      authenticate: requireAuth(tokens),
+      authenticate,
       loginRateLimit: loginRateLimit(config.loginRateLimitMax),
     }),
+  );
+
+  app.use(
+    '/api/profile',
+    createProfileRouter(
+      new ProfileController(new ProfileService(new ProfileRepository(prisma))),
+      authenticate,
+    ),
   );
 
   app.use('/api/docs', createDocsRouter());
