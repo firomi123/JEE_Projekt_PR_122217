@@ -42,3 +42,6 @@ Thumbs.db
 *.run.xml
 *.synctex.gz
 *.toc
+
+# Diagrams rendered from docs/diagramy/*.puml by npm run docs:report
+docs/sprawozdanie/img/diagramy/

@@ -21,7 +21,13 @@
     "typecheck": "npm run build:shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build:shared && npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w e2e",
-    "docs:report": "node scripts/build-report.mjs"
+    "docs:report": "node scripts/build-report.mjs",
+    "env:init": "node scripts/init-env.mjs",
+    "docker:up": "docker compose up -d --build --wait",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f --tail=100",
+    "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait postgres-test minio-test && docker compose -f docker-compose.test.yml run --rm minio-test-init",
+    "test:infra:down": "docker compose -f docker-compose.test.yml down -v"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

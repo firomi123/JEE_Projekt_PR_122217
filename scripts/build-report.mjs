@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 /**
  * Builds the LaTeX report (docs/sprawozdanie/main.tex) into
- * docs/sprawozdanie/build/main.pdf inside the `texlive/texlive` Docker image,
- * so no local TeX distribution is needed.
+ * docs/sprawozdanie/build/main.pdf, entirely in Docker, so neither TeX nor Java
+ * is needed locally:
+ *   1. renders every PlantUML diagram in docs/diagramy/*.puml to PNG in
+ *      docs/sprawozdanie/img/diagramy/ (`plantuml/plantuml` image; output is
+ *      gitignored and regenerated on every build),
+ *   2. runs latexmk (pdflatex + biber) in the `texlive/texlive` image.
  *
  * Usage: `npm run docs:report` (add `-- --clean` to remove the build directory first).
  */
@@ -11,9 +15,11 @@ import { rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const IMAGE = process.env.TEXLIVE_IMAGE ?? 'texlive/texlive:latest';
+const TEXLIVE_IMAGE = process.env.TEXLIVE_IMAGE ?? 'texlive/texlive:latest';
+const PLANTUML_IMAGE = process.env.PLANTUML_IMAGE ?? 'plantuml/plantuml:latest';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const reportDir = resolve(repoRoot, 'docs', 'sprawozdanie');
+const docsDir = resolve(repoRoot, 'docs');
+const reportDir = resolve(docsDir, 'sprawozdanie');
 
 /**
  * Runs a command synchronously with inherited stdio and terminates the current
@@ -38,7 +44,23 @@ function run(command, args) {
 
 if (process.argv.includes('--clean')) {
   rmSync(resolve(reportDir, 'build'), { recursive: true, force: true });
+  rmSync(resolve(reportDir, 'img', 'diagramy'), { recursive: true, force: true });
 }
+
+// PlantUML processes every .puml file in the given directory.
+run('docker', [
+  'run',
+  '--rm',
+  '-v',
+  `${docsDir}:/docs`,
+  PLANTUML_IMAGE,
+  '-tpng',
+  '-charset',
+  'UTF-8',
+  '-o',
+  '/docs/sprawozdanie/img/diagramy',
+  '/docs/diagramy',
+]);
 
 // latexmk runs pdflatex and biber as many times as needed to resolve references.
 run('docker', [
@@ -48,7 +70,7 @@ run('docker', [
   `${reportDir}:/data`,
   '-w',
   '/data',
-  IMAGE,
+  TEXLIVE_IMAGE,
   'latexmk',
   '-pdf',
   '-interaction=nonstopmode',

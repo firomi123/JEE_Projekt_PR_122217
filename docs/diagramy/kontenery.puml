@@ -1,0 +1,29 @@
+@startuml kontenery
+' Diagram kontenerów (model C4) – Aplikacja kierowcy, Etap 2
+!include <C4/C4_Container>
+skinparam dpi 200
+LAYOUT_TOP_DOWN()
+HIDE_STEREOTYPE()
+
+Person(kierowca, "Kierowca", "Telefon lub komputer z przeglądarką")
+Person(admin, "Administrator", "Nadzór nad systemem")
+
+System_Boundary(system, "Aplikacja kierowcy (Docker Compose)") {
+  Container(frontend, "frontend", "nginx + React PWA", "Serwuje aplikację, przekazuje /api do backendu")
+  Container(backend, "backend", "Node.js 22, Express", "REST API, JWT, szyfrowanie plików")
+  ContainerDb(postgres, "postgres", "PostgreSQL 16", "Użytkownicy, dokumenty, wersje, historia")
+  ContainerDb(minio, "minio", "MinIO (S3)", "Zaszyfrowane pliki dokumentów")
+  Container(minioinit, "minio-init", "MinIO Client", "Jednorazowo tworzy bucket")
+  Container(prometheus, "prometheus", "Prometheus", "Zbiera metryki")
+  Container(grafana, "grafana", "Grafana", "Dashboardy")
+}
+
+Rel(kierowca, frontend, "HTTP", ":8090")
+Rel(frontend, backend, "HTTP /api/*", "sieć app")
+Rel(backend, postgres, "SQL", "sieć data")
+Rel(backend, minio, "S3 API", "sieć data")
+Rel_L(minioinit, minio, "mc mb", "sieć data")
+Rel(prometheus, backend, "GET /metrics", "sieć monitoring")
+Rel(grafana, prometheus, "PromQL", "sieć monitoring")
+Rel(admin, grafana, "HTTP", ":3001")
+@enduml

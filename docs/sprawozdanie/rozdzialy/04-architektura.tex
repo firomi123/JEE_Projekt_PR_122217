@@ -6,8 +6,29 @@ serwera REST API, relacyjnej bazy danych oraz magazynu obiektów na pliki
 dokumentów. Wszystkie komponenty działają w kontenerach Docker i są
 uruchamiane wspólnie przez Docker Compose.
 
-\douzupelnienia{diagram kontenerów (model C4) i opis komunikacji między
-komponentami; Etap 2}
+Rysunek~\ref{fig:kontenery} przedstawia kontenery systemu w notacji modelu C4
+\cite{c4model}. Użytkownik łączy się wyłącznie z kontenerem \texttt{frontend}:
+serwer nginx udostępnia zbudowaną aplikację React, a żądania na ścieżki
+\texttt{/api/*} przekazuje do kontenera \texttt{backend}. Przeglądarka rozmawia
+więc z jednym adresem (ta sama domena dla aplikacji i API), dzięki czemu nie
+trzeba konfigurować mechanizmu CORS. Backend zapisuje dane w bazie PostgreSQL
+i zaszyfrowane pliki w magazynie MinIO, zgodnym z interfejsem Amazon S3.
+Prometheus okresowo pobiera metryki backendu, a Grafana prezentuje je na
+dashboardach.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{diagramy/kontenery.png}
+\caption{Diagram kontenerów systemu (model C4)}
+\label{fig:kontenery}
+\end{figure}
+
+Kontenery są rozdzielone na trzy sieci Dockera według zasady najmniejszych
+uprawnień: \texttt{app} (nginx i backend), \texttt{data} (backend, PostgreSQL,
+MinIO) oraz \texttt{monitoring} (backend, Prometheus, Grafana). Frontend nie ma
+bezpośredniego dostępu do bazy danych ani do magazynu plików, a jedynym
+kontenerem obecnym we wszystkich sieciach jest backend. Szczegóły konfiguracji
+opisano w podrozdziale~\ref{sec:docker}.
 
 \subsection{Wybór technologii}
 

@@ -1,4 +1,149 @@
 \subsection{Docker}
 \label{sec:docker}
 
-\douzupelnienia{opis docker-compose.yml, wieloetapowe obrazy, sieci i wolumeny; Etap 2}
+Cały system jest opisany w pliku \texttt{docker-compose.yml} \cite{docker}
+i uruchamiany poleceniem \texttt{docker compose up -d --build --wait}
+(w repozytorium: \texttt{npm run docker:up}). Opcja \texttt{--wait} kończy
+polecenie dopiero wtedy, gdy wszystkie kontenery zgłoszą stan \emph{healthy}.
+Usługi zestawiono w tabeli~\ref{tab:uslugi}.
+
+\begin{table}[htbp]
+\centering
+\caption{Usługi zdefiniowane w pliku \texttt{docker-compose.yml}}
+\label{tab:uslugi}
+\small
+\begin{tabular}{|p{0.15\textwidth}|p{0.25\textwidth}|p{0.15\textwidth}|p{0.3\textwidth}|}
+\hline
+\textbf{Usługa} & \textbf{Obraz} & \textbf{Port hosta} & \textbf{Healthcheck} \\
+\hline
+\texttt{frontend} & własny (nginx) & 8090 & \texttt{GET /nginx-health} \\
+\hline
+\texttt{backend} & własny (Node.js 22) & -- & \texttt{GET /health} \\
+\hline
+\texttt{postgres} & \texttt{postgres:16-alpine} & 5432\textsuperscript{*} & \texttt{pg\_isready} \\
+\hline
+\texttt{minio} & \texttt{quay.io/minio/minio} & 9000, 9001\textsuperscript{*} & \texttt{GET /minio/health/live} \\
+\hline
+\texttt{minio-init} & \texttt{quay.io/minio/mc} & -- & zadanie jednorazowe \\
+\hline
+\texttt{prometheus} & \texttt{prom/prometheus} & 9090\textsuperscript{*} & \texttt{GET /-/healthy} \\
+\hline
+\texttt{grafana} & \texttt{grafana/grafana} & 3001 & \texttt{GET /api/health} \\
+\hline
+\multicolumn{4}{|l|}{\textsuperscript{*} port dostępny tylko z komputera, na którym działa Docker (\texttt{127.0.0.1})} \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Wieloetapowe obrazy}
+
+Backend i frontend mają własne pliki \texttt{Dockerfile} zbudowane w dwóch
+etapach. Etap \emph{build} instaluje wszystkie zależności (także
+deweloperskie, np. kompilator TypeScript) i kompiluje kod. Etap \emph{runtime}
+zawiera tylko to, co jest potrzebne do działania: w przypadku backendu są to
+skompilowany kod JavaScript i zależności produkcyjne, a w przypadku frontendu
+statyczne pliki aplikacji serwowane przez nginx. Kontekstem budowania jest
+katalog główny repozytorium, ponieważ oba pakiety korzystają ze wspólnego
+pakietu \texttt{shared}. Polecenie \texttt{npm ci -w} instaluje przy tym
+zależności tylko potrzebnych pakietów monorepo. Gotowy obraz backendu zajmuje
+około 250~MB, a obraz frontendu około 83~MB.
+
+Oba obrazy działają na koncie użytkownika bez uprawnień administratora:
+backend jako użytkownik \texttt{node} (UID 1000), a frontend na obrazie
+\texttt{nginx-unprivileged} jako użytkownik \texttt{nginx} (UID 101),
+nasłuchując na nieuprzywilejowanym porcie 8080. Backend jest uruchamiany
+z opcją \texttt{init: true}, która jako proces numer 1 umieszcza w kontenerze
+program \texttt{tini}. Przekazuje on procesowi Node.js sygnał \texttt{SIGTERM},
+więc \texttt{docker compose stop} kończy kontener od razu, a nie dopiero
+po 10-sekundowym limicie.
+
+\subsubsection{Serwer nginx}
+
+Konfiguracja nginx (\texttt{frontend/nginx.conf}) \cite{nginx} realizuje trzy
+zadania. Nieznane ścieżki kieruje do \texttt{index.html}, bo nawigacją
+zarządza router aplikacji React. Żądania \texttt{/api/*} przekazuje do
+backendu. Dodaje też nagłówki bezpieczeństwa (\texttt{X-Content-Type-Options},
+\texttt{X-Frame-Options}, \texttt{Referrer-Policy}). Adres backendu jest
+rozwiązywany przez wbudowany serwer DNS Dockera przy każdym żądaniu (dyrektywa
+\texttt{resolver} i zmienna w \texttt{proxy\_pass}). Po restarcie kontenera
+backendu, który może dostać nowy adres IP, nginx od razu kieruje ruch pod
+właściwy adres; sprawdzono to, restartując backend przy działającym systemie.
+Pliki z katalogu \texttt{/assets/} mają w nazwie skrót zawartości, więc
+przeglądarka może je przechowywać przez rok, natomiast \texttt{index.html}
+nie jest zapisywany w pamięci podręcznej.
+
+\subsubsection{Kolejność uruchamiania i odporność na awarie}
+
+Każda usługa ma zdefiniowany \texttt{healthcheck} oraz politykę
+\texttt{restart: unless-stopped}. Kolejność uruchamiania wynika z warunków
+\texttt{depends\_on}: backend startuje dopiero wtedy, gdy PostgreSQL i MinIO
+są \emph{healthy}, a zadanie \texttt{minio-init} zakończyło się sukcesem
+(\texttt{service\_completed\_successfully}). Zadanie to tworzy bucket na
+dokumenty z wyłączonym dostępem anonimowym. Opcja \texttt{--ignore-existing}
+sprawia, że można je bezpiecznie uruchamiać przy każdym starcie. Frontend
+czeka na zdrowy backend, a Grafana na Prometheusa. Fragment definicji
+backendu:
+
+\begin{small}
+\begin{verbatim}
+backend:
+  restart: unless-stopped
+  init: true
+  depends_on:
+    postgres:   { condition: service_healthy }
+    minio:      { condition: service_healthy }
+    minio-init: { condition: service_completed_successfully }
+  healthcheck:
+    test: ['CMD', 'wget', '-q', '-O', '/dev/null',
+           'http://127.0.0.1:3000/health']
+    interval: 10s
+    timeout: 5s
+    retries: 3
+    start_period: 15s
+\end{verbatim}
+\end{small}
+
+\subsubsection{Sieci i wolumeny}
+
+Podział na sieci \texttt{app}, \texttt{data} i \texttt{monitoring} opisano
+w rozdziale~\ref{sec:architektura}. Dane trwałe znajdują się w nazwanych
+wolumenach: \texttt{pgdata} (baza danych), \texttt{miniodata} (pliki
+dokumentów), \texttt{promdata} (szeregi czasowe metryk) i \texttt{grafanadata}.
+Polecenie \texttt{docker compose down} usuwa kontenery, ale zachowuje
+wolumeny. Porty bazy danych, MinIO i Prometheusa są wystawione tylko na adresie
+\texttt{127.0.0.1}, więc są dostępne wyłącznie z komputera, na którym działa
+Docker. Służą programiście do uruchamiania backendu poza kontenerem
+(\texttt{npm run dev}).
+
+\subsubsection{Konfiguracja i sekrety}
+
+Wszystkie parametry są przekazywane przez zmienne środowiskowe z pliku
+\texttt{.env}, który nie trafia do repozytorium. W repozytorium znajduje się
+wzorzec \texttt{.env.example}, a skrypt \texttt{npm run env:init} tworzy na jego
+podstawie plik \texttt{.env} z losowymi hasłami do bazy, MinIO i Grafany,
+sekretem JWT oraz 256-bitowym kluczem głównym szyfrowania. Zmienne wymagane są
+zapisane w postaci \texttt{\$\{JWT\_SECRET:?komunikat\}}, dzięki czemu
+\texttt{docker compose} odmawia uruchomienia systemu, gdy któregoś sekretu
+brakuje, zamiast uruchomić go z pustym hasłem.
+
+\subsubsection{Środowisko testowe}
+
+Plik \texttt{docker-compose.test.yml} definiuje osobny projekt
+(\texttt{driver-docs-test}) z bazą PostgreSQL i magazynem MinIO na potrzeby
+testów funkcjonalnych API. Dane tych kontenerów są przechowywane w pamięci
+(\texttt{tmpfs}), więc każde uruchomienie zaczyna się od pustego stanu, a testy
+nie mogą uszkodzić danych środowiska deweloperskiego. Kontenery testowe
+używają innych portów (5433 i 9100), więc mogą działać jednocześnie z głównym
+systemem.
+
+\subsubsection{Napotkany problem: obrazy MinIO}
+
+W 2025 roku firma MinIO przestała publikować obrazy wersji Community
+w serwisie Docker Hub. W czasie realizacji projektu repozytorium
+\texttt{minio/minio} nie było tam już dostępne i próba pobrania obrazu kończyła
+się błędem. Projekt korzysta więc z rejestru \texttt{quay.io} z przypiętym
+wydaniem \texttt{RELEASE.2025-09-07T16-13-09Z} \cite{minio}. Wniosek z tej
+sytuacji: wersje obrazów należy przypinać. Obrazy MinIO, Prometheusa
+i Grafany mają przypiętą dokładną wersję, a obrazy bazowe (\texttt{node:22},
+\texttt{postgres:16}) wersję główną, która nadal otrzymuje poprawki
+bezpieczeństwa.

@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 1 – szkielet repozytorium.** Kontenery Docker, API i ekrany aplikacji powstają w kolejnych etapach.
+> Stan: **Etap 2 – infrastruktura Docker.** Cały stos startuje w kontenerach; API i ekrany aplikacji powstają w kolejnych etapach.
 
 ## Struktura
 
@@ -23,23 +23,45 @@ Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nau
 - Node.js 22 lub nowszy, npm 10+
 - Docker (do budowania sprawozdania, a od Etapu 2 do uruchamiania całego systemu)
 
+## Uruchomienie w Dockerze
+
+```bash
+npm install
+npm run env:init          # tworzy .env z losowymi hasłami i kluczami
+npm run docker:up         # docker compose up -d --build --wait
+```
+
+| Usługa                 | Adres                                         |
+| ---------------------- | --------------------------------------------- |
+| Aplikacja (nginx)      | http://localhost:8090                         |
+| API przez nginx        | http://localhost:8090/api/health              |
+| Grafana                | http://localhost:3001 (hasło admina w `.env`) |
+| Prometheus             | http://127.0.0.1:9090                         |
+| Konsola MinIO          | http://127.0.0.1:9001                         |
+| PostgreSQL (dla hosta) | 127.0.0.1:5432                                |
+
+Zatrzymanie: `npm run docker:down` (dane zostają w wolumenach; `docker compose down -v` je usuwa).
+
 ## Uruchomienie (tryb deweloperski)
 
 ```bash
 npm install
-cp .env.example .env      # uzupełnij sekrety
-npm run dev               # backend: http://localhost:3000, frontend: http://localhost:5173
+npm run env:init          # jeśli nie ma jeszcze .env
+npm run dev               # backend: http://localhost:3000, frontend: http://localhost:5173 (proxy /api)
 ```
 
 ## Polecenia
 
-| Polecenie             | Działanie                                                                                             |
-| --------------------- | ----------------------------------------------------------------------------------------------------- |
-| `npm run dev`         | Backend (`tsx watch`) i frontend (Vite) jednocześnie                                                  |
-| `npm run build`       | Kompilacja `shared`, backendu i frontendu                                                             |
-| `npm run lint`        | ESLint + kontrola formatowania Prettier                                                               |
-| `npm run format`      | Formatowanie kodu Prettierem                                                                          |
-| `npm run typecheck`   | Kontrola typów TypeScript we wszystkich pakietach                                                     |
-| `npm test`            | Testy Vitest we wszystkich pakietach                                                                  |
-| `npm run test:e2e`    | Testy Playwright (przed pierwszym uruchomieniem: `npm run install:browsers -w e2e`)                   |
-| `npm run docs:report` | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (`texlive/texlive`); `-- --clean` buduje od zera |
+| Polecenie                                           | Działanie                                                                                                                                    |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                       | Backend (`tsx watch`) i frontend (Vite) jednocześnie                                                                                         |
+| `npm run build`                                     | Kompilacja `shared`, backendu i frontendu                                                                                                    |
+| `npm run lint`                                      | ESLint + kontrola formatowania Prettier                                                                                                      |
+| `npm run format`                                    | Formatowanie kodu Prettierem                                                                                                                 |
+| `npm run typecheck`                                 | Kontrola typów TypeScript we wszystkich pakietach                                                                                            |
+| `npm test`                                          | Testy Vitest we wszystkich pakietach                                                                                                         |
+| `npm run test:e2e`                                  | Testy Playwright (przed pierwszym uruchomieniem: `npm run install:browsers -w e2e`)                                                          |
+| `npm run env:init`                                  | Tworzy `.env` z `.env.example` i generuje sekrety                                                                                            |
+| `npm run docker:up` / `docker:down` / `docker:logs` | Start (z budowaniem, czeka na `healthy`), zatrzymanie i logi całego stosu                                                                    |
+| `npm run test:infra:up` / `test:infra:down`         | Tymczasowe PostgreSQL (5433) i MinIO (9100) dla testów, dane w tmpfs                                                                         |
+| `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`); `-- --clean` buduje od zera |

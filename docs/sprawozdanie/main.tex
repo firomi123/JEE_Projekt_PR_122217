@@ -9,6 +9,10 @@
 \setcounter{biburllcpenalty}{7000}
 \setcounter{biburlucpenalty}{8000}
 
+% Dodatkowe rozciąganie odstępów w akapitach z długimi, niepodzielnymi nazwami
+% w \texttt (pliki, dyrektywy) zamiast wierszy wystających poza margines.
+\setlength{\emergencystretch}{3em}
+
 % Znacznik fragmentów, które zostaną uzupełnione w kolejnych etapach (PLAN.md, 13.2).
 % Przed oddaniem: grep -r "douzupelnienia" main.tex rozdzialy/ musi zwracać pusty wynik.
 \newcommand{\douzupelnienia}[1]{\textit{[Do uzupełnienia: #1]}}
