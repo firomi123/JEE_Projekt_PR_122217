@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 9 – zdjęcie dokumentu aparatem, kadrowanie i kompresja.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
+> Stan: **Etap 10 – aplikacja instalowalna (PWA), praca offline powłoki aplikacji.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
 
 ## Struktura
 

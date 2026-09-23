@@ -181,4 +181,42 @@ obrocie, kolejne poziomy jakości, decyzja, czy kompresować) są wydzielone do
 modułu \texttt{image-math.ts} i pokryte testami jednostkowymi. Operacje na
 płótnie są sprawdzane testami Playwright w prawdziwej przeglądarce.
 
-\douzupelnienia{PWA, zrzuty ekranu z telefonu; Etap 10}
+\subsubsection{Aplikacja instalowalna (PWA)}
+
+Aplikacja jest progresywną aplikacją webową (PWA) \cite{mdn_pwa}. Wtyczka
+\texttt{vite-plugin-pwa} generuje podczas budowania manifest i service worker
+(biblioteka Workbox).
+
+\paragraph{Manifest.} Plik \texttt{manifest.webmanifest} opisuje aplikację do
+instalacji: nazwę (,,Aplikacja kierowcy -- dokumenty przewozowe'', skrót
+,,Kierowca''), język polski, adres startowy, tryb \texttt{standalone}
+(aplikacja uruchamia się bez paska adresu, jak aplikacja natywna), orientację
+pionową, kolory motywu oraz ikony 192 i 512~pikseli. Osobna ikona
+\emph{maskable} ma rysunek w bezpiecznym obszarze 80~\%, dzięki czemu Android
+może ją przyciąć do kształtu ikon systemu. Ikony są generowane z jednego
+pliku SVG skryptem, który renderuje je w przeglądarce Chromium.
+
+\paragraph{Service worker.} Service worker przechowuje w pamięci podręcznej
+wyłącznie pliki aplikacji (HTML, JavaScript, CSS, ikony), więc aplikacja
+uruchamia się także bez połączenia z siecią. Adresy aplikacji otwierane bez
+sieci są obsługiwane przez zapisany \texttt{index.html}, a routingiem zajmuje
+się React Router. Żądania do API (\texttt{/api/*}), w tym pliki dokumentów,
+mają strategię \emph{NetworkOnly}: nie są nigdy zapisywane na urządzeniu,
+bo dokumenty są poufne, a zapisane kopie przetrwałyby wylogowanie. Po wdrożeniu
+nowej wersji service worker aktualizuje się automatycznie. Serwer nginx
+wysyła \texttt{sw.js} i manifest z nagłówkiem wymuszającym sprawdzenie
+aktualności, żeby zainstalowane aplikacje nie utknęły na starej wersji.
+
+\paragraph{Brak połączenia.} Gdy przeglądarka zgłasza brak sieci, u góry
+ekranu pojawia się baner ,,Brak połączenia z internetem. Możesz przeglądać
+aplikację, ale dokumenty wymagają połączenia.'', a po odzyskaniu połączenia
+znika. Błędy żądań wykonanych bez sieci są pokazywane jako komunikat
+o braku połączenia.
+
+\paragraph{Weryfikacja.} Plan zakładał sprawdzenie aplikacji narzędziem
+Lighthouse. Kategoria ,,PWA'' została jednak usunięta z Lighthouse w wersji~12,
+dlatego wymagania instalowalności sprawdzają testy Playwright
+(podrozdział~\ref{sec:testy}). Instalację na telefonie należy sprawdzić
+ręcznie (README, sekcja o teście na telefonie).
+
+\douzupelnienia{zrzuty ekranu z telefonu}

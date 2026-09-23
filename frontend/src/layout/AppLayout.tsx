@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/useAuth';
+import { OfflineBanner } from '../components/OfflineBanner';
 import { T } from '../i18n/texts';
 
 /** Main navigation entries (bottom bar on phones, top bar on wider screens). */
@@ -29,6 +30,7 @@ export function AppLayout() {
           {T.nav.logout}
         </button>
       </header>
+      <OfflineBanner />
       <nav className="nav" aria-label={T.nav.mainNavigation}>
         {NAV_ITEMS.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end} className="nav__link">
@@ -54,6 +56,7 @@ export function AppLayout() {
 export function AuthLayout() {
   return (
     <main className="auth-page">
+      <OfflineBanner />
       <p className="auth-page__brand">{T.appName}</p>
       <div className="card">
         <Outlet />

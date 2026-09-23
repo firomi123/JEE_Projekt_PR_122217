@@ -321,4 +321,20 @@ prawdziwym telefonie z systemem Android podłączonym przez ADB
 otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
 \douzupelnienia{wynik testu na telefonie i zrzuty ekranu każdego kroku}
 
-\douzupelnienia{testy kolejnych etapów, raport pokrycia; Etapy 10--12}
+\subsubsection{Testy PWA}
+
+Trzy scenariusze Etapu 10 działają na zbudowanej aplikacji (service worker
+działa tylko w wersji produkcyjnej):
+\begin{itemize}
+  \item strona wskazuje manifest, który ma wymagane pola (nazwa, tryb
+        \texttt{standalone}, adres startowy, kolory), ikony 192 i 512~pikseli
+        oraz ikonę \emph{maskable}, a każda ikona jest dostępna jako PNG;
+  \item po zarejestrowaniu service workera i przełączeniu przeglądarki w tryb
+        offline aplikacja uruchamia się z pamięci podręcznej i pokazuje baner
+        braku połączenia, który znika po powrocie sieci;
+  \item po otwarciu dokumentu w pamięci podręcznej service workera nie ma
+        żadnej odpowiedzi z adresów \texttt{/api/}, a więc ani danych, ani
+        plików dokumentów.
+\end{itemize}
+
+\douzupelnienia{testy kolejnych etapów, raport pokrycia; Etapy 11--12}

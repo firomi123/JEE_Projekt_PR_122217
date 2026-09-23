@@ -405,6 +405,16 @@ h2 {
   font-weight: 700;
 }
 
+/* ---------- Offline ---------- */
+
+.offline-banner {
+  padding: 0.625rem 1rem;
+  background: #fff4d6;
+  color: #5c4300;
+  border-bottom: 1px solid #f2d27a;
+  font-size: 0.9375rem;
+}
+
 /* ---------- Camera and photo editor ---------- */
 
 .button--secondary {

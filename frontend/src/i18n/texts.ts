@@ -148,6 +148,10 @@ export const T = {
     compressed: (before: string, after: string, width: number, height: number) =>
       `Zdjęcie zmniejszone: ${before} → ${after} (${width}×${height} px)`,
   },
+  offline: {
+    banner:
+      'Brak połączenia z internetem. Możesz przeglądać aplikację, ale dokumenty wymagają połączenia.',
+  },
   notFound: {
     title: 'Nie znaleziono strony',
     goHome: 'Przejdź do dokumentów',
