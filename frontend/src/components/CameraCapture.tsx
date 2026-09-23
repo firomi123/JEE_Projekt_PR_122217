@@ -32,6 +32,11 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
   const [busy, setBusy] = useState(false);
   const failure = FAILURE_MESSAGES[status];
 
+  /**
+   * Takes a photo from the live stream and passes it to `onCapture`.
+   * Disables the shutter while capturing; errors from `capture` propagate to the caller
+   * (the button handler), `busy` is reset in every case.
+   */
   const shoot = async () => {
     setBusy(true);
     try {

@@ -45,6 +45,12 @@ describe('status transitions', () => {
   });
 
   it('lets every status except ARCHIVED eventually reach ARCHIVED', () => {
+    /**
+     * Depth-first search over `STATUS_TRANSITIONS`: can ARCHIVED be reached from `status`?
+     * @param status - Starting status.
+     * @param seen - Statuses already visited (prevents cycles); mutated.
+     * @returns True when some chain of allowed transitions ends in ARCHIVED.
+     */
     const reachesArchived = (status: DocumentStatus, seen = new Set<DocumentStatus>()): boolean => {
       if (status === 'ARCHIVED') return true;
       seen.add(status);

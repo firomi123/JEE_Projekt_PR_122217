@@ -36,6 +36,13 @@ export function PhotoEditor({ photo, onDone, onRetake }: PhotoEditorProps) {
 
   const onCropComplete = useCallback((_: Area, pixels: Area) => setArea(pixels), []);
 
+  /**
+   * Applies the selected rotation and crop to the photo, compresses it and passes the result
+   * to `onDone`: loads the original image, renders the rotated and cropped area on a canvas
+   * and compresses it to JPEG (`compressImage`, file name `zdjecie-dokumentu`).
+   * On failure sets `failed` (error message) instead of calling `onDone`; `busy` is reset
+   * in every case.
+   */
   const finish = async () => {
     setBusy(true);
     setFailed(false);

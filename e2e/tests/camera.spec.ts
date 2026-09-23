@@ -93,6 +93,10 @@ test('stops the camera when the camera view is closed', async ({ page }) => {
   await page.goto('/dokumenty/nowy');
   await page.getByRole('button', { name: 'Zrób zdjęcie' }).click();
   await expect(page.getByTestId('camera-preview')).toBeVisible();
+  /**
+   * Counts the live tracks of the stream attached to the page's `<video>` element.
+   * @returns The number of tracks in state `live`; 0 when there is no video or stream.
+   */
   const liveTracks = () =>
     page.evaluate(() => {
       const video = document.querySelector('video');

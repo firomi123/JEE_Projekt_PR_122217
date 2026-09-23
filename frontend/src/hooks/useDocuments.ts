@@ -61,6 +61,10 @@ export function useVersionFile(id: string, versionNo: number | undefined) {
  */
 export function useDocumentMutations(id: string) {
   const queryClient = useQueryClient();
+  /**
+   * Invalidates every cached document query (list and details) after a successful mutation.
+   * @returns The promise of the refetch triggered by the invalidation.
+   */
   const onSuccess = () => queryClient.invalidateQueries({ queryKey: documentKeys.all });
   return {
     update: useMutation({

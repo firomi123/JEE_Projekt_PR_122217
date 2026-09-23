@@ -26,6 +26,10 @@ function sample(metrics: string, name: string, labels: Record<string, string> = 
 
 describe('GET /metrics', () => {
   const { app, prisma } = useTestApp();
+  /**
+   * Scrapes the metrics endpoint of the test app.
+   * @returns The body of `GET /metrics` in the Prometheus text format.
+   */
   const scrape = async () => (await request(app).get('/metrics')).text;
 
   it('returns the Prometheus text format with Node.js default metrics', async () => {

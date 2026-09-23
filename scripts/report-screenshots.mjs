@@ -101,6 +101,11 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 page.on('dialog', (dialog) => dialog.accept());
+/**
+ * Saves a screenshot of the current viewport to the report's screenshot folder.
+ * @param {string} name - File name without extension.
+ * @returns {Promise<Buffer>} The PNG bytes (also written to `<outDir>/<name>.png`).
+ */
 const shot = (name) => page.screenshot({ path: resolve(outDir, `${name}.png`) });
 
 await page.goto('/logowanie');

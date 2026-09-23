@@ -13,6 +13,11 @@ import {
 import { loginAs } from './helpers/users.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/**
+ * Computes the SHA-256 digest of a buffer.
+ * @param data - Bytes to hash.
+ * @returns The digest as lowercase hex (as stored in `DocumentVersion.sha256`).
+ */
 const sha256 = (data: Buffer) => createHash('sha256').update(data).digest('hex');
 
 describe('POST /api/documents (upload)', () => {

@@ -26,6 +26,11 @@ import { formatBytes, formatDateTime } from '../lib/format';
  * @returns A sentence such as "Status: Roboczy → Przesłany".
  */
 function describeHistory(entry: DocumentHistoryDto): string {
+  /**
+   * Maps a status stored in a history entry to its Polish label.
+   * @param value - Status code, or null when the entry has no value.
+   * @returns The label, or the "empty value" text for null.
+   */
   const status = (value: string | null) =>
     value ? DOCUMENT_STATUS_LABELS[value as DocumentStatus] : T.history.empty;
   switch (entry.action) {
@@ -120,16 +125,31 @@ export function DocumentDetailsPage() {
   }
 
   const archived = document.status === 'ARCHIVED';
+  /**
+   * Shows the outcome of a mutation as the page message: "saved" on success, the
+   * Polish error message on failure. Never rejects.
+   * @param result - Promise of the mutation.
+   * @returns A promise that settles after the message is set.
+   */
   const report = (result: Promise<unknown>) =>
     result
       .then(() => setMessage({ kind: 'info', text: T.details.saved }))
       .catch((failure: unknown) => setMessage({ kind: 'error', text: errorMessage(failure) }));
 
+  /**
+   * Asks for confirmation and changes the document status (PATCH through the mutation).
+   * Does nothing when the user cancels the confirmation dialog.
+   * @param status - Target status (one of the allowed transitions).
+   */
   const changeStatus = (status: DocumentStatus) => {
     if (!window.confirm(T.details.confirmStatus(DOCUMENT_STATUS_LABELS[status]))) return;
     void report(update.mutateAsync({ status }));
   };
 
+  /**
+   * Submits the metadata form: sends the title and number as a PATCH and reports the result.
+   * @param event - Submit event of the form (default navigation is prevented).
+   */
   const saveMetadata = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -141,6 +161,12 @@ export function DocumentDetailsPage() {
     );
   };
 
+  /**
+   * Submits the new-version form: uploads the selected file with the optional change
+   * note. On success resets the form and shows 'saved'; on failure, or when no file is
+   * selected, shows the error at the file field.
+   * @param event - Submit event of the form (default navigation is prevented).
+   */
   const uploadVersion = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!newFile) {
@@ -159,6 +185,10 @@ export function DocumentDetailsPage() {
       .catch((failure: unknown) => setVersionError(errorMessage(failure)));
   };
 
+  /**
+   * Asks for confirmation, deletes the document (soft delete in the API) and navigates to
+   * the list. On failure shows the error message; does nothing when the user cancels.
+   */
   const deleteDocument = () => {
     if (!window.confirm(T.details.confirmDelete)) return;
     remove

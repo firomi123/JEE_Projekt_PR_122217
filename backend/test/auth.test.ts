@@ -227,6 +227,11 @@ describe('POST /api/auth/login – rate limiting', () => {
     ctx = buildTestApp({ LOGIN_RATE_LIMIT_MAX: '3' });
     await ctx.prisma.user.deleteMany();
     await createUser(ctx.prisma, { username: 'jan_kowalski' });
+    /**
+     * Sends one login request for `jan_kowalski` with the given password.
+     * @param password - Password to try.
+     * @returns The Supertest response (status 200, 401 or 429).
+     */
     const attempt = (password: string) =>
       request(ctx.app).post('/api/auth/login').send({ username: 'jan_kowalski', password });
 
@@ -331,6 +336,11 @@ describe('GET /api/auth/me', () => {
 
   it('returns 401 for an unsigned token (alg "none")', async () => {
     const user = await createUser(prisma);
+    /**
+     * Encodes a JWT header or payload segment: JSON, then base64url.
+     * @param value - Object to encode.
+     * @returns The base64url segment (no signature involved).
+     */
     const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
     const now = Math.floor(Date.now() / 1000);
     const token = `${encode({ alg: 'none', typ: 'JWT' })}.${encode({
