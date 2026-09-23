@@ -4,7 +4,7 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk).
 
-> Stan: **Etap 12 – komplet testów: jednostkowe, funkcjonalne API, E2E (także na stosie Docker), pokrycie kodu, CI.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
+> Stan: **Etap 13 – sprawozdanie kompletne (`docs/sprawozdanie/`), dokumentacja kodu TypeDoc.** API: rejestracja i logowanie (JWT), profil kierowcy, dokumenty z plikami JPG/PNG/PDF szyfrowanymi przed zapisem w MinIO (AES-256-GCM, szyfrowanie kopertowe), wersje, statusy, historia zmian, dokumentacja OpenAPI. Interfejs użytkownika powstaje w kolejnych etapach.
 
 ## Struktura
 
@@ -85,4 +85,6 @@ Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komp
 | `npm run test:infra:up` / `test:infra:down`         | Tymczasowe PostgreSQL (5433) i MinIO (9100) dla testów, dane w tmpfs                                                                         |
 | `npm run monitoring:check`                          | Sprawdza reguły alertów i konfigurację (`promtool`, `amtool`)                                                                                |
 | `npm run chaos`                                     | Test watchdogów na działającym stosie: awaria procesu, zamrożenie, zatrzymanie bazy (5–8 min, wymaga bash)                                   |
+| `npm run docs:code`                                 | Dokumentacja kodu TypeDoc (z opisów TSDoc) w `docs/kod/index.html`                                                                           |
+| `npm run docs:screenshots`                          | Zrzuty ekranu do sprawozdania (emulacja Pixel 7) z działającego stosu Docker                                                                 |
 | `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`); `-- --clean` buduje od zera |

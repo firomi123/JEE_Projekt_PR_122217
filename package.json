@@ -31,7 +31,9 @@
     "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait postgres-test minio-test && docker compose -f docker-compose.test.yml run --rm minio-test-init",
     "test:infra:down": "docker compose -f docker-compose.test.yml down -v",
     "monitoring:check": "bash monitoring/chaos-test.sh config",
-    "chaos": "bash monitoring/chaos-test.sh"
+    "chaos": "bash monitoring/chaos-test.sh",
+    "docs:code": "typedoc",
+    "docs:screenshots": "node scripts/report-screenshots.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -43,6 +45,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.12.0",
     "prettier": "^3.9.9",
+    "typedoc": "0.28.20",
     "typescript": "~6.0",
     "typescript-eslint": "^8.70.1"
   }

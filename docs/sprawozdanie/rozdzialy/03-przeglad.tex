@@ -1,15 +1,130 @@
 \section{Przegląd istniejących rozwiązań}
 \label{sec:przeglad}
 
-\douzupelnienia{analiza trzech rozwiązań według wspólnych kryteriów (funkcje,
-platforma, obsługa e-CMR, skanowanie dokumentów, cena, wady) i tabela
-porównawcza z projektowaną aplikacją; PLAN.md, punkt 13.4}
+Na rynku są dwie grupy narzędzi bliskich tematowi projektu: platformy
+transportowe z obiegiem dokumentów elektronicznych oraz ogólne aplikacje do
+skanowania dokumentów telefonem. Z każdej grupy wybrano rozwiązanie
+reprezentatywne i porównano je według tych samych kryteriów: przeznaczenie,
+platforma, obsługa elektronicznego listu przewozowego (e-CMR), zdjęcia
+papierowych dokumentów, organizacja dokumentów (typy, statusy, wersje),
+przechowywanie i koszt. Informacje pochodzą z oficjalnych stron producentów
+i aktów prawnych, stan na wrzesień 2026~r.
 
-\subsection{Rozwiązanie A}
-\douzupelnienia{np. platforma e-CMR}
+\subsection{Tło: elektroniczny list przewozowy}
 
-\subsection{Rozwiązanie B}
-\douzupelnienia{np. giełda transportowa z obiegiem dokumentów}
+Elektroniczny list przewozowy wprowadza Protokół dodatkowy do Konwencji CMR,
+podpisany w Genewie 20~lutego 2008~r. i obowiązujący od 5~czerwca 2011~r.
+\cite{un_ecmr_protokol}. Polska przystąpiła do niego w 2019~r., a protokół
+obowiązuje w Polsce od 11~września 2019~r. \cite{dzu_2019_1487}. Na poziomie
+Unii Europejskiej rozporządzenie (UE) 2020/1056 w sprawie elektronicznych
+informacji dotyczących przewozu towarów (eFTI) zobowiązuje organy państw
+członkowskich do przyjmowania informacji udostępnionych elektronicznie przez
+certyfikowane platformy eFTI. Nie nakłada jednak na przewoźników obowiązku
+rezygnacji z papieru, a wybór formy elektronicznej pozostaje dobrowolny
+\cite{efti_rozporzadzenie}. Rozporządzenie ma być stosowane w pełni od
+9~lipca 2027~r. \cite{efti_ke}. W najbliższych latach papierowe dokumenty
+pozostaną więc w użyciu obok elektronicznych, a kierowca nadal musi je
+przechowywać i przekazywać do biura.
 
-\subsection{Rozwiązanie C}
-\douzupelnienia{np. aplikacja do skanowania dokumentów telefonem}
+\subsection{TransFollow}
+
+TransFollow to platforma e-CMR dla firm transportowych \cite{transfollow}.
+Składa się z interfejsu API do integracji z systemami ERP, WMS i TMS, portalu
+webowego dla biura, aplikacji mobilnej \emph{TransFollow Drive} dla kierowców
+(Android i iOS) oraz usługi, w której kierowca komunikuje się przez
+komunikatory bez instalowania aplikacji. Producent deklaruje zgodność ze
+standardami UN/CEFACT, RODO i ISO~27001 oraz gotowość do eFTI.
+W aplikacji Drive kierowca rejestruje etapy przewozu, udostępnia lokalizację,
+zgłasza nieprawidłowości i obsługuje dokumenty elektroniczne: e-CMR,
+potwierdzenie dostawy, listy pakowe. Dokumenty podpisuje podpisem
+elektronicznym, a do zlecenia może dołączyć zdjęcia, które trafiają do
+archiwum w portalu \cite{transfollow_drive}.
+
+TransFollow jest rozwiązaniem B2B zbudowanym wokół zlecenia transportowego
+i współpracy nadawcy, przewoźnika i odbiorcy. Obsługuje dokumenty tworzone
+elektronicznie, a zdjęcia są jedynie załącznikami. Na stronie producenta nie
+znaleziono funkcji kadrowania ani rozpoznawania papierowych dokumentów, a wśród
+typów dokumentów nie ma krajowego dokumentu WZ. Cennik nie jest publiczny.
+
+\subsection{Platforma Trans.eu}
+
+Trans.eu to giełda transportowa (platforma B2B do handlu przewozami)
+udostępniana na podstawie odpłatnej umowy i cennika \cite{transeu_regulamin}.
+Dla kierowców przeznaczona jest aplikacja \emph{Loads4Driver}, służąca do
+komunikacji z kierowcą i przekazywania sygnału monitorowania pojazdu.
+Wymaga ona konta powiązanego z rolą ,,Kierowca'' w koncie firmy i może być
+dodatkowo płatna \cite{transeu_regulamin}. Dokumenty są związane ze zleceniami
+transportowymi. Grupa Trans.eu od 2021~r. rozwija moduł e-CMR
+\cite{transeu_ecmr}, a w 2025~r. opisywała automatyczne generowanie e-CMR
+powiązanego ze zleceniem, w wersji na komputer oraz Android i iOS, testowane
+przez wybranych klientów \cite{cargoon_ecmr}. Dostęp do platformy jest
+abonamentowy, a przykładowo prywatna giełda ładunków kosztuje od
+240~EUR netto miesięcznie \cite{transeu_cennik}.
+
+Z perspektywy kierowcy Trans.eu jest narzędziem firmy do pozyskiwania
+i realizacji zleceń, a nie osobistym archiwum dokumentów. W opisie aplikacji
+kierowcy nie znaleziono fotografowania i kadrowania dokumentów ani statusów
+i historii wersji dokumentu.
+
+\subsection{Adobe Scan (wcześniej także Microsoft Lens)}
+
+Najprostszym sposobem digitalizacji papierowego dokumentu jest ogólna
+aplikacja do skanowania telefonem. Popularny dotąd Microsoft Lens został
+wycofany: od lutego 2026~r. nie ma go w sklepach, a od 9~marca 2026~r.
+nie wykonuje skanów. Microsoft zaleca zamiast niego skanowanie w aplikacji
+OneDrive, które zapisuje pliki tylko w chmurze OneDrive \cite{ms_lens}.
+Przeglądowi poddano więc Adobe Scan \cite{adobe_scan}. Jest bezpłatny na
+Android i iOS, automatycznie wykrywa krawędzie dokumentu, koryguje perspektywę,
+usuwa odblaski i cienie, a tekst rozpoznaje funkcją OCR. Wynik zapisuje jako
+PDF z możliwością przeszukiwania albo jako JPEG, w folderach w chmurze Adobe
+Document Cloud (szyfrowanie w czasie przesyłania i przechowywania). Część
+funkcji wymaga płatnej subskrypcji Acrobat.
+
+Pod względem jakości zdjęcia Adobe Scan przewyższa proste kadrowanie
+zastosowane w projekcie. Jest to jednak skaner ogólnego przeznaczenia: nie
+zna typów dokumentów przewozowych, nie ma statusów obiegu dokumentu, historii
+wersji ani powiązania z profilem kierowcy i nie obsługuje e-CMR. Pliki trafiają
+do chmury dostawcy, a przypadek Microsoft Lens pokazuje, że dostawca może
+wycofać narzędzie, z którego korzystają użytkownicy.
+
+\subsection{Porównanie}
+
+Tabela~\ref{tab:porownanie} zestawia omówione rozwiązania z projektowaną
+aplikacją.
+
+\begin{table}[htbp]
+\centering
+\caption{Porównanie istniejących rozwiązań z Aplikacją kierowcy}
+\label{tab:porownanie}
+\footnotesize
+\begin{tabular}{|p{0.15\textwidth}|p{0.17\textwidth}|p{0.17\textwidth}|p{0.17\textwidth}|p{0.19\textwidth}|}
+\hline
+\textbf{Kryterium} & \textbf{TransFollow} & \textbf{Trans.eu} & \textbf{Adobe Scan} & \textbf{Aplikacja kierowcy} \\
+\hline
+Przeznaczenie & e-CMR i obieg dokumentów między firmami & giełda transportowa i zlecenia & skanowanie dowolnych dokumentów & archiwum dokumentów przewozowych kierowcy \\
+\hline
+Platforma & Android, iOS, portal WWW, API & WWW, aplikacje Android i iOS & Android, iOS & PWA w przeglądarce (instalowalna) \\
+\hline
+e-CMR & tak (główna funkcja) & w fazie wdrażania & nie & nie (możliwy kierunek rozwoju) \\
+\hline
+Zdjęcie papierowego dokumentu & zdjęcia jako załączniki & brak informacji & tak: krawędzie, perspektywa, OCR & tak: kadrowanie, obrót, kompresja \\
+\hline
+Typy i statusy dokumentów & dokumenty zlecenia (e-CMR, POD) & dokumenty zlecenia & brak (foldery) & typy (CMR, WZ, \ldots), statusy z regułami przejść \\
+\hline
+Historia wersji & brak informacji & brak informacji & nie & tak, z historią zmian \\
+\hline
+Przechowywanie & chmura dostawcy & chmura dostawcy & chmura Adobe & własny serwer, szyfrowanie AES-256-GCM \\
+\hline
+Koszt & cennik niepubliczny & abonament firmy & bezpłatny, funkcje premium płatne & bez opłat (własne wdrożenie) \\
+\hline
+\end{tabular}
+\zrodlo{opracowanie własne na podstawie \cite{transfollow,transfollow_drive,transeu_regulamin,transeu_cennik,cargoon_ecmr,adobe_scan}}
+\end{table}
+
+Platformy transportowe rozwiązują obieg dokumentów elektronicznych między
+firmami, ale nie pomagają kierowcy w uporządkowaniu dokumentów papierowych,
+które wciąż otrzymuje. Skanery dobrze digitalizują papier, ale nie znają
+specyfiki dokumentów przewozowych. Projektowana aplikacja wypełnia lukę między
+tymi grupami. Łączy zdjęcie dokumentu telefonem z typami i statusami
+dokumentów przewozowych, historią wersji i szyfrowanym przechowywaniem na
+serwerze, który firma może uruchomić u siebie jednym poleceniem.

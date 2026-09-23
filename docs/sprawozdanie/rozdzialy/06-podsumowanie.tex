@@ -1,5 +1,101 @@
 \section{Podsumowanie i wnioski}
 \label{sec:podsumowanie}
 
-\douzupelnienia{co zrealizowano względem wymagań, napotkane problemy i ich
-rozwiązania, możliwości rozwoju (OCR, e-CMR, panel dyspozytora); Etap 13}
+\subsection{Realizacja celu}
+
+Zrealizowano wszystkie wymagania funkcjonalne z rozdziału~\ref{sec:cel}.
+Kierowca zakłada konto i loguje się, a żądania są uwierzytelniane tokenem JWT.
+Uzupełnia profil, do którego przypisane są jego dokumenty. Dokument fotografuje
+aparatem telefonu, kadruje i obraca zdjęcie, a aplikacja kompresuje je przed
+wysłaniem (zdjęcie 12~Mpx o rozmiarze 3,7~MB zajmuje po kompresji około
+0,7--0,8~MB). Dokumenty mają typy, statusy z regułami przejść, kolejne wersje
+pliku i historię zmian. Można je wyszukiwać i filtrować.
+
+Wymagania niefunkcjonalne zrealizowano następująco:
+\begin{itemize}
+  \item \textbf{Bezpieczeństwo}: pliki są szyfrowane algorytmem AES-256-GCM
+        z osobnym kluczem dla każdego pliku (szyfrowanie kopertowe), hasła są
+        przechowywane jako skróty argon2id, a nieudane logowania ograniczane.
+        Użytkownik ma dostęp tylko do własnych dokumentów, co sprawdzają testy.
+  \item \textbf{Obsługa mobilna}: responsywny interfejs z dolną nawigacją,
+        instalowalny jako PWA i uruchamiający się bez sieci.
+  \item \textbf{Łatwe wdrożenie}: cały system, łącznie z monitoringiem,
+        uruchamia polecenie \texttt{docker compose up}. Migracje bazy
+        wykonuje osobny kontener przed startem backendu.
+  \item \textbf{Obserwowalność i niezawodność}: metryki Prometheus, cztery
+        dashboardy Grafany, 12 reguł alertów, centralne logi w Loki oraz
+        automatyczne restarty po awarii i po zawieszeniu procesu, sprawdzone
+        testem chaosu.
+  \item \textbf{Jakość}: 158 testów backendu (głównie funkcjonalnych, na
+        prawdziwej bazie i magazynie plików), 90 testów pakietu wspólnego,
+        46 testów jednostkowych frontendu i 31 scenariuszy Playwright
+        w emulacji telefonu. Pokrycie kodu przekracza 93~\% instrukcji
+        w każdym pakiecie (frontend mierzony testami w przeglądarce).
+\end{itemize}
+
+\subsection{Napotkane problemy i wnioski}
+
+Najcenniejszym wnioskiem z projektu jest skuteczność testów funkcjonalnych.
+Wykryły one kilka błędów, których nie ujawniłyby testy jednostkowe ani
+pobieżne ręczne sprawdzenie:
+\begin{itemize}
+  \item po odświeżeniu strony pierwsze zapytania wysyłane były bez tokenu,
+        bo efekty komponentów potomnych w React wykonują się przed efektem
+        dostawcy kontekstu (poprawka: token przechowywany poza drzewem
+        komponentów);
+  \item strumień aparatu wyłączał się zaraz po uruchomieniu, a użytkownik
+        widziałby zamrożoną klatkę (poprawka: efekt uruchamiany raz przy
+        wyświetleniu widoku);
+  \item po wylogowaniu i zalogowaniu innego kierowcy aplikacja wracała na
+        stronę dokumentu poprzedniego użytkownika;
+  \item metryki HTTP miały błędne etykiety tras, bo Express przywraca
+        ścieżkę bazową routera przed zakończeniem odpowiedzi;
+  \item pomiar opóźnienia pętli zdarzeń tracił próbkę po wyzerowaniu
+        histogramu, więc zawieszenie procesu nie byłoby wykryte.
+\end{itemize}
+Każdy z tych błędów najpierw odtworzono testem, który nie przechodził,
+a dopiero potem poprawiono kod. Testy pozostają w zestawie i chronią przed
+powrotem błędu.
+
+Drugi wniosek dotyczy środowiska testowego. Testy w przeglądarce okazały się
+wrażliwe na obciążenie komputera: haszowanie haseł argon2 i przetwarzanie
+zdjęć 12~Mpx konkurowały o procesor z przeglądarkami. Stabilność zapewniło
+uruchamianie testów na zbudowanej aplikacji (zamiast serwera deweloperskiego)
+i kolejne, a nie równoległe, wykonywanie scenariuszy.
+
+Trzeci wniosek dotyczy monitoringu: sama konfiguracja kontroli stanu nie
+gwarantuje samonaprawy. Test chaosu pokazał, że Docker nie restartuje
+kontenera zatrzymanego poleceniem \texttt{docker kill}, bo traktuje je jak
+ręczne zatrzymanie, a zawieszonego, ale działającego procesu nie restartuje
+wcale. Dopiero dodatkowy kontener \emph{autoheal} i test z rzeczywistym
+zawieszeniem procesu potwierdziły, że system sam wraca do działania.
+
+\subsection{Ograniczenia}
+
+Aparat sprawdzono tylko w emulacji (wirtualna kamera Chromium), bez
+prawdziwego telefonu. Procedura testu na urządzeniu z Androidem jest opisana
+w pliku README. Potok ciągłej integracji jest przygotowany, ale nie był
+uruchomiony, bo repozytorium nie ma zdalnej kopii. Aplikacja ma jedną rolę
+użytkownika, więc zmiany statusu, które w praktyce należałyby do biura
+(akceptacja, odrzucenie), wykonuje sam kierowca.
+
+\subsection{Możliwości rozwoju}
+
+\begin{itemize}
+  \item \textbf{Lepsze zdjęcia dokumentów}: automatyczne wykrywanie krawędzi
+        kartki i korekcja perspektywy, jak w aplikacjach skanujących
+        (podrozdział~\ref{sec:przeglad}).
+  \item \textbf{Rozpoznawanie tekstu (OCR)}: odczyt numeru dokumentu,
+        nadawcy i odbiorcy ze zdjęcia i wypełnianie nimi formularza.
+  \item \textbf{Panel dyspozytora}: rola pracownika biura, który akceptuje
+        lub odrzuca dokumenty kierowców i widzi dokumenty całej floty.
+  \item \textbf{e-CMR i eFTI}: import i eksport elektronicznych listów
+        przewozowych oraz integracja z platformami eFTI, które od 2027~r.
+        mają być w pełni honorowane przez organy kontrolne.
+  \item \textbf{Praca bez sieci}: kolejka wysyłek zapisywana na urządzeniu
+        w postaci zaszyfrowanej i wysyłana po odzyskaniu połączenia, co ma
+        znaczenie na trasach bez zasięgu.
+  \item \textbf{Zarządzanie kluczami}: przechowywanie klucza głównego
+        w usłudze KMS i jego okresowa rotacja (szyfrowanie kopertowe
+        pozwala zmienić klucz główny bez ponownego szyfrowania plików).
+\end{itemize}

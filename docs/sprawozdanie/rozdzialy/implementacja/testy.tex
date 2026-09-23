@@ -319,7 +319,14 @@ z haszowaniem argon2.
 prawdziwym telefonie z systemem Android podłączonym przez ADB
 (\texttt{adb reverse} przekierowuje port aplikacji, dzięki czemu telefon
 otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
-\douzupelnienia{wynik testu na telefonie i zrzuty ekranu każdego kroku}
+W czasie realizacji projektu telefon nie był podłączony, dlatego aparat
+sprawdzono tylko w emulacji (wirtualna kamera Chromium i sztuczne zdjęcie
+12~Mpx wstrzykiwane do pola wyboru pliku). Procedurę testu ręcznego opisano
+w pliku README: przekierowanie portów poleceniem \texttt{adb reverse},
+otwarcie aplikacji w przeglądarce Chrome, zgoda na dostęp do aparatu,
+zdjęcie dokumentu, kadrowanie, zapis i instalacja PWA na ekranie głównym.
+Test na prawdziwym urządzeniu warto wykonać przed wdrożeniem, bo emulacja
+nie odtwarza autofokusu, ekspozycji ani rzeczywistej rozdzielczości aparatu.
 
 \subsubsection{Testy PWA}
 
@@ -409,6 +416,7 @@ Frontend (Playwright, 31 scenariuszy) & 93,9\,\% & 82,8\,\% & 90,8\,\% & 92,1\,\
 Frontend (tylko jednostkowe, 46 testów) & 12,3\,\% & 13,2\,\% & 7,6\,\% & -- \\
 \hline
 \end{tabular}
+\zrodlo{opracowanie własne}
 \end{table}
 
 Niskie pokrycie frontendu samymi testami jednostkowymi jest zamierzone:

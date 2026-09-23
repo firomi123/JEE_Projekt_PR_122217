@@ -101,6 +101,7 @@ potrzebują bloków \texttt{try/catch}.
 \texttt{INTERNAL\_ERROR} & 500 & Nieoczekiwany błąd serwera \\
 \hline
 \end{tabular}
+\zrodlo{opracowanie własne}
 \end{table}
 
 \subsubsection{Logowanie zdarzeń}
@@ -178,6 +179,7 @@ GET & \path{/api/documents/:id/versions/:no/file} & Pobranie odszyfrowanego plik
 GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
 \hline
 \end{tabular}
+\zrodlo{opracowanie własne}
 \end{table}
 
 \subsubsection{Rejestracja i logowanie}
@@ -215,6 +217,7 @@ także po czasie odpowiedzi nie da się ustalić, które loginy istnieją.
 \includegraphics[width=0.9\textwidth]{diagramy/logowanie.png}
 \caption{Sekwencja logowania i użycia tokenu JWT}
 \label{fig:logowanie}
+\zrodlo{opracowanie własne}
 \end{figure}
 
 Chronione endpointy przechodzą przez middleware \texttt{requireAuth}. Oczekuje
@@ -311,6 +314,7 @@ skopiowany do innej wersji nie da się więc odszyfrować.
 \includegraphics[width=\textwidth]{diagramy/upload.png}
 \caption{Sekwencja dodania dokumentu z szyfrowaniem kopertowym}
 \label{fig:upload}
+\zrodlo{opracowanie własne}
 \end{figure}
 
 Zapis przebiega w kolejności: szyfrowanie, zapis obiektu w MinIO, transakcja
@@ -358,6 +362,7 @@ nie zmienia, nie tworzy wpisów.
 \includegraphics[width=0.55\textwidth]{diagramy/statusy.png}
 \caption{Diagram stanów dokumentu}
 \label{fig:statusy}
+\zrodlo{opracowanie własne}
 \end{figure}
 
 \paragraph{Lista i usuwanie.} Lista zwraca dokumenty użytkownika od ostatnio

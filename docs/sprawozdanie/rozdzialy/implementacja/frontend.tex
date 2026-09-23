@@ -121,6 +121,7 @@ Pole pliku w formularzu dokumentu (i w formularzu nowej wersji) ma przycisk
 \includegraphics[width=0.62\textwidth]{diagramy/zdjecie.png}
 \caption{Przepływ zdjęcia: aparat, kadrowanie, kompresja, wysłanie}
 \label{fig:zdjecie}
+\zrodlo{opracowanie własne}
 \end{figure}
 
 \paragraph{Aparat.} Hook \texttt{useCamera} uruchamia strumień wideo
@@ -174,6 +175,7 @@ dla typowych zdjęć 12~Mpx zawiera tabela~\ref{tab:kompresja}.
 3024 × 4032 px (pionowe) & 3,7 MB & 1500 × 2000 px & 708 kB \\
 \hline
 \end{tabular}
+\zrodlo{opracowanie własne}
 \end{table}
 
 Obliczenia niezależne od przeglądarki (rozmiar po skalowaniu, rozmiar po
@@ -219,4 +221,68 @@ dlatego wymagania instalowalności sprawdzają testy Playwright
 (podrozdział~\ref{sec:testy}). Instalację na telefonie należy sprawdzić
 ręcznie (README, sekcja o teście na telefonie).
 
-\douzupelnienia{zrzuty ekranu z telefonu}
+\subsubsection{Wygląd aplikacji}
+
+Rysunki~\ref{fig:zrzuty-1} i~\ref{fig:zrzuty-2} pokazują główne ekrany
+aplikacji. Zrzuty wykonano skryptem \path{scripts/report-screenshots.mjs}
+w przeglądarce Chromium sterowanej przez Playwright, w emulacji telefonu
+Pixel~7 (ekran 412$\times$915 punktów), na aplikacji uruchomionej w stosie
+Docker. Skrypt zakłada konto demonstracyjne i dodaje przez API kilka
+dokumentów. Obraz z aparatu pochodzi z wirtualnej kamery Chromium (ruchomy
+wzór testowy), a nie z prawdziwego aparatu.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.31\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/logowanie.png}
+
+  \small (a) logowanie
+\end{minipage}\hfill
+\begin{minipage}[t]{0.31\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/lista.png}
+
+  \small (b) lista dokumentów z filtrami
+\end{minipage}\hfill
+\begin{minipage}[t]{0.31\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/szczegoly.png}
+
+  \small (c) szczegóły dokumentu
+\end{minipage}
+\caption{Ekrany aplikacji: logowanie, lista i szczegóły dokumentu (emulacja telefonu Pixel~7)}
+\label{fig:zrzuty-1}
+\zrodlo{opracowanie własne (zrzuty ekranu aplikacji)}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.23\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/aparat.png}
+
+  \small (a) podgląd aparatu
+\end{minipage}\hfill
+\begin{minipage}[t]{0.23\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/kadrowanie.png}
+
+  \small (b) kadrowanie i obrót
+\end{minipage}\hfill
+\begin{minipage}[t]{0.23\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/nowy-dokument.png}
+
+  \small (c) zdjęcie po kompresji
+\end{minipage}\hfill
+\begin{minipage}[t]{0.23\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/profil.png}
+
+  \small (d) profil kierowcy
+\end{minipage}
+\caption{Dodawanie dokumentu zdjęciem i profil kierowcy (emulacja telefonu Pixel~7, wirtualna kamera)}
+\label{fig:zrzuty-2}
+\zrodlo{opracowanie własne (zrzuty ekranu aplikacji)}
+\end{figure}

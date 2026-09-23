@@ -1,0 +1,11 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "Aplikacja kierowcy – dokumentacja kodu",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["shared", "backend", "frontend"],
+  "out": "docs/kod",
+  "includeVersion": false,
+  "readme": "none",
+  "excludePrivate": false,
+  "treatWarningsAsErrors": false
+}
