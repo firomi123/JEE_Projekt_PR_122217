@@ -48,7 +48,7 @@ npm run docker:up         # docker compose up -d --build --wait
 
 **Konto biura:** login `biuro` (`OFFICE_USERNAME`), hasło w `.env` (`OFFICE_PASSWORD`, generowane przez `env:init`). Backend zakłada to konto przy starcie; po zalogowaniu biuro trafia do panelu http://localhost:8090/biuro. Zmiana hasła w `.env` działa po restarcie backendu.
 
-> Jeśli budowanie obrazów kończy się błędem npm („Exit handler never called” / błąd certyfikatu), a antywirus skanuje połączenia HTTPS (np. Norton – zmienna `NODE_EXTRA_CA_CERTS` wskazuje jego certyfikat), kontenery nie ufają jego certyfikatowi. Wyłącz skanowanie HTTPS w antywirusie na czas budowania albo dodaj wyjątek dla Dockera.
+> Jeśli budowanie obrazów kończy się błędem npm („Exit handler never called” / błąd certyfikatu), a antywirus skanuje połączenia HTTPS (np. Norton – zmienna `NODE_EXTRA_CA_CERTS` wskazuje jego certyfikat), kontenery nie ufają jego certyfikatowi. Wyłącz na czas budowania moduł skanujący HTTPS (w Nortonie: Web/Mail Shield) albo dodaj wyjątek dla Dockera.
 
 | Usługa                 | Adres                                                         |
 | ---------------------- | ------------------------------------------------------------- |
