@@ -1,0 +1,76 @@
+% Strona tytułowa sprawozdania według wzoru SAN (Word): logo, kierunek, dane
+% studenta po prawej, przedmiot, rodzaj pracy, tytuł, prowadzący, miasto i rok.
+%
+% Użycie w main.tex (po \documentclass{san}, przed \begin{document}):
+%   \input{strona-tytulowa}
+%   + dane: \przedmiot, \tytul, \nralbumu, \grupa, \prowadzacy, \miasto, \rok (z san.cls)
+%     oraz poniższe (mają wartości domyślne, zmieniaj tylko potrzebne):
+%   \kierunek{Informatyka}
+%   \nazwiskoimie{Roman Piotr}
+%   \grupaslownie{IV}            – pusta wartość {} ukrywa wiersz
+%   \trybstudiow{Studia Inż. Zaoczne}   – pusta wartość {} ukrywa wiersz
+%   \rodzajpracy{Sprawozdanie}
+%   \zajecia{z projektu}         – np. {z Laboratorium nr 1}; pusta ukrywa wiersz
+%   \logo{san-logo.jpg}          – plik w img/
+% Strona powstaje przez \maketitlepage (zastępuje wersję z san.cls, pliku klasy nie zmienia).
+
+\makeatletter
+
+\newcommand{\kierunek}[1]{\gdef\@kierunek{#1}}
+\newcommand{\nazwiskoimie}[1]{\gdef\@nazwiskoimie{#1}}
+\newcommand{\grupaslownie}[1]{\gdef\@grupaslownie{#1}}
+\newcommand{\trybstudiow}[1]{\gdef\@trybstudiow{#1}}
+\newcommand{\rodzajpracy}[1]{\gdef\@rodzajpracy{#1}}
+\newcommand{\zajecia}[1]{\gdef\@zajecia{#1}}
+\newcommand{\logo}[1]{\gdef\@logo{#1}}
+
+\kierunek{Informatyka}
+\nazwiskoimie{Roman Piotr}
+\grupaslownie{IV}
+\trybstudiow{Studia Inż. Zaoczne}
+\rodzajpracy{Sprawozdanie}
+\zajecia{z projektu}
+\logo{san-logo.jpg}
+
+% Wiersz danych studenta; pomijany, gdy wartość jest pusta.
+\newcommand{\@tpwiersz}[1]{%
+  \if\relax\detokenize{#1}\relax\else #1\par\vspace{0.15cm}\fi}
+
+\renewcommand{\maketitlepage}{%
+  \begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+    \includegraphics[width=0.72\textwidth]{\@logo}\par
+    \vspace{1.2cm}
+    {\LARGE Kierunek studiów: \textbf{\@kierunek}\par}
+    \vspace{0.5cm}
+    \hspace*{0.3\textwidth}%
+    \begin{minipage}{0.6\textwidth}
+      \raggedright\small
+      \@tpwiersz{Nazwisko i Imię: \@nazwiskoimie}
+      \@tpwiersz{Numer albumu: \@nralbumu}
+      \if\relax\detokenize\expandafter{\@grupaslownie}\relax\else
+        \@tpwiersz{Grupa: \@grupaslownie}\fi
+      \@tpwiersz{nr grupy: \@grupa}
+      \if\relax\detokenize\expandafter{\@trybstudiow}\relax\else
+        \@tpwiersz{\@trybstudiow}\fi
+    \end{minipage}\par
+    \vspace{1.3cm}
+    {\sffamily\bfseries\Large \@przedmiot\par}
+    \vspace{0.7cm}
+    {\sffamily\bfseries\Large \@rodzajpracy\par}
+    \if\relax\detokenize\expandafter{\@zajecia}\relax\else
+      \vspace{0.5cm}
+      {\sffamily\bfseries\Large \@zajecia\par}
+    \fi
+    \vspace{0.8cm}
+    {\bfseries\LARGE \@tytul\par}
+    \vfill
+    Prowadzący zajęcia: \textbf{\@prowadzacy}\par
+    \vspace{2cm}
+    {\bfseries\Large \@miasto\ \@rok\par}
+    \vspace{1cm}
+  \end{titlepage}%
+}
+
+\makeatother
