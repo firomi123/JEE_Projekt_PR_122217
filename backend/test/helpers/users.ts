@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 import request from 'supertest';
-import type { LoginResponse } from '@driver-docs/shared';
+import type { LoginResponse, UserRole } from '@driver-docs/shared';
 import { hashPassword } from '../../src/lib/password.js';
 import type { PrismaClient } from '../../src/lib/prisma.js';
 
@@ -13,6 +13,8 @@ export interface TestUserInput {
   username?: string;
   email?: string;
   password?: string;
+  /** Account role; `DRIVER` (like public registration) unless given. */
+  role?: UserRole;
 }
 
 /** Cache of argon2 hashes by password, so tests do not re-hash the same password. */
@@ -38,7 +40,8 @@ function cachedHash(password: string): Promise<string> {
  * argon2 hash so the user can log in, and an empty driver profile (as registration
  * creates one).
  *
- * Unique (lowercase) username and e-mail are generated unless given.
+ * Unique (lowercase) username and e-mail are generated unless given; the role is
+ * `DRIVER` unless given.
  *
  * @param prisma - Client connected to the test database.
  * @param input - Optional overrides; `password` defaults to {@link DEFAULT_PASSWORD}.
@@ -52,6 +55,7 @@ export async function createUser(prisma: PrismaClient, input: TestUserInput = {}
       username: input.username ?? `driver_${suffix}`,
       email: input.email ?? `driver_${suffix}@example.com`,
       passwordHash: await cachedHash(input.password ?? DEFAULT_PASSWORD),
+      role: input.role ?? 'DRIVER',
       profile: { create: {} },
     },
   });
@@ -88,4 +92,25 @@ export async function loginAs(
   }
   const { accessToken } = response.body as LoginResponse;
   return { user, token: accessToken, authHeader: `Bearer ${accessToken}` };
+}
+
+/**
+ * Creates an office (dispatcher) account and logs in through the API.
+ *
+ * @param app - Application under test.
+ * @param prisma - Client connected to the test database.
+ * @param input - Optional user overrides (the role is always `OFFICE`).
+ * @returns The office user, its access token and the matching Authorization header.
+ * @throws {Error} If the login request does not return 200.
+ */
+export function loginAsOffice(
+  app: Express,
+  prisma: PrismaClient,
+  input: TestUserInput = {},
+): Promise<LoggedInUser> {
+  return loginAs(app, prisma, {
+    username: `office_${randomUUID().slice(0, 8)}`,
+    ...input,
+    role: 'OFFICE',
+  });
 }

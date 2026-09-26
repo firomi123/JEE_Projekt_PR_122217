@@ -12,6 +12,7 @@ entity "users" as users {
   * username : VARCHAR(30) <<unique>>
   * email : VARCHAR(254) <<unique>>
   * password_hash : TEXT
+  * role : UserRole (DRIVER | OFFICE)
   * created_at : TIMESTAMPTZ
   * updated_at : TIMESTAMPTZ
 }
@@ -70,6 +71,7 @@ entity "document_history" as history {
   field : VARCHAR(30)
   old_value : VARCHAR(500)
   new_value : VARCHAR(500)
+  comment : VARCHAR(500)
   * created_at : TIMESTAMPTZ
 }
 

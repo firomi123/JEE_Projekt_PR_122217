@@ -1,5 +1,5 @@
 import { Prisma } from '../generated/prisma/client.js';
-import type { User } from '../generated/prisma/client.js';
+import type { User, UserRole } from '../generated/prisma/client.js';
 import type { PrismaClient } from '../lib/prisma.js';
 
 /** Data needed to create a user; the password must already be hashed. */
@@ -7,7 +7,29 @@ export interface NewUser {
   username: string;
   email: string;
   passwordHash: string;
+  /** `DRIVER` (the database default) unless given. */
+  role?: UserRole;
 }
+
+/** A driver account with its profile's contact data (for the office). */
+export type DriverWithProfile = Pick<User, 'id' | 'username'> & {
+  profile: {
+    firstName: string | null;
+    lastName: string | null;
+    phone: string | null;
+    licenseNumber: string | null;
+    companyName: string | null;
+  } | null;
+};
+
+/** Profile fields shown to the office next to a driver. */
+export const DRIVER_PROFILE_SELECT = {
+  firstName: true,
+  lastName: true,
+  phone: true,
+  licenseNumber: true,
+  companyName: true,
+} as const;
 
 /** Thrown by {@link UserRepository.create} when a unique column already holds the value. */
 export class DuplicateUserError extends Error {
@@ -66,7 +88,7 @@ export class UserRepository {
    * Inserts a user together with an empty driver profile, atomically (one nested
    * write, so an account never exists without its profile).
    *
-   * @param data - Normalized username and e-mail plus the password hash.
+   * @param data - Normalized username and e-mail, the password hash and optionally the role.
    * @returns The created user.
    * @throws {DuplicateUserError} If the username or e-mail was registered concurrently
    *   (unique constraint violation, Prisma error `P2002`).
@@ -82,5 +104,29 @@ export class UserRepository {
       }
       throw error;
     }
+  }
+
+  /**
+   * Replaces a user's password hash.
+   *
+   * @param id - User id.
+   * @param passwordHash - New argon2 hash.
+   * Side effects: updates one row of `users`.
+   */
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+  }
+
+  /**
+   * Lists all driver accounts (not office accounts) with their profile's contact data.
+   *
+   * @returns Drivers ordered by username.
+   */
+  async listDrivers(): Promise<DriverWithProfile[]> {
+    return this.prisma.user.findMany({
+      where: { role: 'DRIVER' },
+      orderBy: { username: 'asc' },
+      select: { id: true, username: true, profile: { select: DRIVER_PROFILE_SELECT } },
+    });
   }
 }

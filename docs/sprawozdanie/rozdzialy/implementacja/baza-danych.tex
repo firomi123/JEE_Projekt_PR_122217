@@ -45,6 +45,8 @@ da się ich odgadnąć, a to ma znaczenie przy adresach dokumentów w API.
 \hline
 \texttt{password\_hash} & \texttt{TEXT} & Skrót hasła (argon2), nigdy samo hasło \\
 \hline
+\texttt{role} & \texttt{UserRole} & Rola: \texttt{DRIVER} (domyślna) albo \texttt{OFFICE} \\
+\hline
 \texttt{created\_at} & \texttt{TIMESTAMPTZ} & Data utworzenia konta \\
 \hline
 \texttt{updated\_at} & \texttt{TIMESTAMPTZ} & Data ostatniej zmiany \\
@@ -133,6 +135,13 @@ i historii zmian oraz typy wyliczeniowe \texttt{DocumentType},
   \item \texttt{document\_history}: dziennik zmian z autorem, rodzajem zmiany,
         polem oraz starą i nową wartością.
 \end{itemize}
+
+Czwarta migracja (\texttt{office\_role}, Etap~15) dodaje typ wyliczeniowy
+\texttt{UserRole}, kolumnę \texttt{role} w tabeli \texttt{users} z wartością
+domyślną \texttt{DRIVER} (istniejące konta stały się kontami kierowców bez
+przepisywania danych) oraz kolumnę \texttt{comment} w tabeli
+\texttt{document\_history} na komentarz biura do decyzji
+(podrozdział~\ref{sec:role}).
 
 Samych plików, nawet zaszyfrowanych, nie ma w bazie danych. Przechowuje je
 MinIO, co ogranicza rozmiar bazy i jej kopii zapasowych. Z kolei w MinIO nie

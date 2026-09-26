@@ -176,6 +176,16 @@ POST & \texttt{/api/documents/:id/versions} & Nowa wersja pliku \\
 \hline
 GET & \path{/api/documents/:id/versions/:no/file} & Pobranie odszyfrowanego pliku \\
 \hline
+GET & \texttt{/api/office/documents} & Biuro: dokumenty wszystkich kierowców z filtrami \\
+\hline
+GET & \texttt{/api/office/documents/:id} & Biuro: szczegóły dokumentu z danymi kierowcy \\
+\hline
+GET & \path{/api/office/documents/:id/versions/:no/file} & Biuro: pobranie odszyfrowanego pliku \\
+\hline
+POST & \path{/api/office/documents/:id/review} & Biuro: akceptacja albo odrzucenie z powodem \\
+\hline
+GET & \texttt{/api/office/drivers} & Biuro: lista kierowców (filtr) \\
+\hline
 GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
 \hline
 \end{tabular}
@@ -377,3 +387,43 @@ warunek na właściciela i pomija dokumenty usunięte. Cudzy dokument jest
 nieodróżnialny od nieistniejącego: każda operacja na nim zwraca 404, więc
 nie da się nawet sprawdzić, czy dany identyfikator istnieje. Identyfikatory
 są losowymi UUID, więc nie da się ich zgadywać po kolei.
+
+\subsubsection{Role i panel biura}
+\label{sec:role}
+
+Konto ma jedną z dwóch ról: \emph{kierowca} (\texttt{DRIVER}) albo
+\emph{biuro} (\texttt{OFFICE}). Rejestracja publiczna zawsze tworzy konto
+kierowcy, więc nikt nie może sam nadać sobie uprawnień biura. Konto biura
+powstaje z konfiguracji: jeśli ustawiono zmienne \texttt{OFFICE\_USERNAME}
+i \texttt{OFFICE\_PASSWORD}, serwer przy starcie zakłada to konto albo, gdy
+już istnieje, ustawia hasło z konfiguracji. Login i hasło podlegają tym samym
+regułom co przy rejestracji (sprawdza je walidacja konfiguracji). Jeśli podany
+login należy już do konta kierowcy, serwer zapisuje błąd w logu i nie zmienia
+tego konta w konto biura, bo taki login mógł zarejestrować ktokolwiek.
+
+Endpointy są rozdzielone według roli. Pośrednik \texttt{requireRole} działa po
+sprawdzeniu tokenu i przy każdym żądaniu odczytuje rolę z bazy danych, a nie
+z tokenu, więc zmiana roli albo usunięcie konta działa od razu. Endpointy
+\texttt{/api/documents} i \texttt{/api/profile} są tylko dla kierowców,
+a \texttt{/api/office} tylko dla biura. Konto innej roli dostaje odpowiedź
+403 \texttt{FORBIDDEN}.
+
+Maszyna stanów dokumentu (rysunek~\ref{fig:statusy}) jest podzielona między
+role (\texttt{ROLE\_STATUS\_TRANSITIONS} we wspólnym pakiecie). Kierowca
+przesyła, wycofuje, poprawia i archiwizuje swoje dokumenty. Tylko biuro
+akceptuje albo odrzuca dokument przesłany. Próba akceptacji przez kierowcę
+kończy się odpowiedzią 403 \texttt{STATUS\_CHANGE\_NOT\_ALLOWED}.
+
+Biuro widzi dokumenty wszystkich kierowców (bez usuniętych) razem z danymi
+kontaktowymi kierowcy z profilu, może pobierać ich pliki (odszyfrowywane
+i sprawdzane tak samo jak u kierowcy) i wydawać decyzje. Nie może natomiast
+edytować ani usuwać dokumentów. Decyzję zapisuje
+\texttt{POST /api/office/documents/:id/review} z polem \texttt{decision}
+(\texttt{ACCEPTED} albo \texttt{REJECTED}) i komentarzem, który przy
+odrzuceniu jest wymagany. Komentarz trafia do historii dokumentu razem
+z autorem zmiany, więc kierowca widzi, kto i dlaczego odrzucił dokument.
+Zmiana statusu jest warunkowa: aktualizacja w bazie ma warunek
+,,status nadal \texttt{SUBMITTED}'' i odbywa się w transakcji z wpisem
+historii. Z dwóch jednoczesnych decyzji (np. dwóch pracowników biura) wygrywa
+więc dokładnie jedna, a druga dostaje 409 \texttt{INVALID\_STATUS\_TRANSITION}.
+

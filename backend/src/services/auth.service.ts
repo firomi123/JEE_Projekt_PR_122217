@@ -15,13 +15,14 @@ const TAKEN_MESSAGES: Record<'username' | 'email', string> = {
  * Converts a user row into the public DTO (drops the password hash).
  *
  * @param user - Database row.
- * @returns `{ id, username, email, createdAt }` with an ISO timestamp.
+ * @returns `{ id, username, email, role, createdAt }` with an ISO timestamp.
  */
 export function toUserDto(user: User): UserDto {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
+    role: user.role,
     createdAt: user.createdAt.toISOString(),
   };
 }

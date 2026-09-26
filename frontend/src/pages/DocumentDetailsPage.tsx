@@ -1,9 +1,7 @@
 import {
   DOCUMENT_STATUS_LABELS,
   DOCUMENT_TYPE_LABELS,
-  STATUS_TRANSITIONS,
-  type DocumentDetailsDto,
-  type DocumentHistoryDto,
+  ROLE_STATUS_TRANSITIONS,
   type DocumentStatus,
 } from '@driver-docs/shared';
 import { useState, type FormEvent } from 'react';
@@ -12,100 +10,19 @@ import { ApiError } from '../api/client';
 import { fetchVersionFile } from '../api/documents';
 import { errorMessage } from '../api/errors';
 import { Alert } from '../components/Alert';
+import { DocumentPreview, HistoryList, VersionList } from '../components/DocumentParts';
 import { FilePicker } from '../components/FilePicker';
 import { StatusBadge } from '../components/StatusBadge';
 import { useDocument, useDocumentMutations, useVersionFile } from '../hooks/useDocuments';
-import { useObjectUrl } from '../hooks/useObjectUrl';
 import { T } from '../i18n/texts';
-import { formatBytes, formatDateTime } from '../lib/format';
+import { latestRejection } from '../lib/history';
 
 /**
- * Describes one history entry in Polish.
- *
- * @param entry - History entry from the API.
- * @returns A sentence such as "Status: Roboczy → Przesłany".
- */
-function describeHistory(entry: DocumentHistoryDto): string {
-  /**
-   * Maps a status stored in a history entry to its Polish label.
-   * @param value - Status code, or null when the entry has no value.
-   * @returns The label, or the "empty value" text for null.
-   */
-  const status = (value: string | null) =>
-    value ? DOCUMENT_STATUS_LABELS[value as DocumentStatus] : T.history.empty;
-  switch (entry.action) {
-    case 'CREATED':
-      return T.history.CREATED;
-    case 'DELETED':
-      return T.history.DELETED;
-    case 'STATUS_CHANGED':
-      return T.history.STATUS_CHANGED(status(entry.oldValue), status(entry.newValue));
-    case 'VERSION_ADDED':
-      return T.history.VERSION_ADDED(entry.newValue ?? '');
-    case 'UPDATED':
-      return T.history.UPDATED(
-        T.history.fields[entry.field ?? ''] ?? entry.field ?? '',
-        entry.oldValue ?? T.history.empty,
-        entry.newValue ?? T.history.empty,
-      );
-  }
-}
-
-/**
- * Saves a Blob as a file through a temporary `<a download>` link.
- *
- * @param blob - File content.
- * @param fileName - Suggested file name.
- * Side effects: triggers a browser download.
- */
-function saveBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/**
- * Preview of the current version: the image itself, or for a PDF a card with an
- * "open" link. PDFs are not embedded: most mobile browsers cannot display an
- * embedded PDF, and the browser's PDF viewer opened in a new tab is more usable
- * on a phone. The file is fetched with the access token and shown through an
- * object URL.
- *
- * @param props.document - The document.
- * @returns The preview section.
- */
-function Preview({ document }: { document: DocumentDetailsDto }) {
-  const { data: blob, error } = useVersionFile(document.id, document.currentVersion);
-  const url = useObjectUrl(blob);
-  return (
-    <section aria-labelledby="preview-heading">
-      <h2 id="preview-heading">{T.details.preview}</h2>
-      {error && <Alert kind="error">{errorMessage(error)}</Alert>}
-      {!url && !error && <p>{T.common.loading}</p>}
-      {url && document.mimeType !== 'application/pdf' && (
-        <img className="preview-image" src={url} alt={T.details.previewAlt(document.title)} />
-      )}
-      {url && document.mimeType === 'application/pdf' && (
-        <div className="preview-pdf" data-testid="pdf-preview">
-          <span aria-hidden="true" className="preview-pdf__icon">
-            PDF
-          </span>
-          <a className="button button--ghost" href={url} target="_blank" rel="noreferrer">
-            {T.details.openPdf}
-          </a>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/**
- * Document details: data, preview, status change (only the allowed transitions),
- * editing title and number, versions with download, adding a new version, change
- * history and deletion. An archived document is shown read-only.
+ * Document details for the driver: data, the office's decision (a rejection with
+ * its reason), preview, status change (only the transitions the driver makes –
+ * accepting and rejecting is up to the office), editing title and number, versions
+ * with download, adding a new version, change history and deletion. An archived
+ * document is shown read-only.
  *
  * @returns The details page.
  */
@@ -114,6 +31,7 @@ export function DocumentDetailsPage() {
   const navigate = useNavigate();
   const { data: document, error, isPending } = useDocument(id);
   const { update, addVersion, remove } = useDocumentMutations(id);
+  const file = useVersionFile(id, document?.currentVersion);
   const [message, setMessage] = useState<{ kind: 'error' | 'info'; text: string } | null>(null);
   const [newFile, setNewFile] = useState<File | null>(null);
   const [versionError, setVersionError] = useState<string>();
@@ -125,6 +43,8 @@ export function DocumentDetailsPage() {
   }
 
   const archived = document.status === 'ARCHIVED';
+  const driverTransitions = ROLE_STATUS_TRANSITIONS.DRIVER[document.status] ?? [];
+  const rejection = document.status === 'REJECTED' ? latestRejection(document.history) : null;
   /**
    * Shows the outcome of a mutation as the page message: "saved" on success, the
    * Polish error message on failure. Never rejects.
@@ -209,14 +129,22 @@ export function DocumentDetailsPage() {
       </p>
       {message && <Alert kind={message.kind}>{message.text}</Alert>}
       {archived && <Alert kind="info">{T.details.archivedInfo}</Alert>}
+      {document.status === 'SUBMITTED' && <Alert kind="info">{T.details.waitingForOffice}</Alert>}
+      {document.status === 'ACCEPTED' && <Alert kind="info">{T.details.acceptedByOffice}</Alert>}
+      {document.status === 'REJECTED' && (
+        <div className="alert alert--error" role="alert" data-testid="rejection">
+          <strong>{T.details.rejectedByOffice}</strong>
+          {rejection && <p className="rejection-reason">{T.details.rejectionReason(rejection)}</p>}
+        </div>
+      )}
 
-      <Preview document={document} />
+      <DocumentPreview document={document} blob={file.data} error={file.error} />
 
-      {!archived && (
+      {!archived && driverTransitions.length > 0 && (
         <section aria-labelledby="status-heading">
           <h2 id="status-heading">{T.details.changeStatus}</h2>
           <div className="actions">
-            {STATUS_TRANSITIONS[document.status].map((next) => (
+            {driverTransitions.map((next) => (
               <button
                 key={next}
                 type="button"
@@ -250,39 +178,11 @@ export function DocumentDetailsPage() {
         </section>
       )}
 
-      <section aria-labelledby="versions-heading">
-        <h2 id="versions-heading">{T.details.versions}</h2>
-        <ul className="plain-list" data-testid="versions">
-          {document.versions.map((version) => (
-            <li key={version.versionNo} className="row">
-              <span>
-                <strong>{T.details.versionLabel(version.versionNo)}</strong>
-                {` · ${formatBytes(version.sizeBytes)} · ${formatDateTime(version.createdAt)}`}
-                {version.changeNote ? ` · ${version.changeNote}` : ''}
-              </span>
-              <button
-                type="button"
-                className="button button--ghost"
-                aria-label={`${T.details.download}: ${T.details.versionLabel(version.versionNo)}`}
-                onClick={() =>
-                  fetchVersionFile(document.id, version.versionNo)
-                    .then((blob) =>
-                      saveBlob(
-                        blob,
-                        `${document.title}-v${version.versionNo}.${version.mimeType.split('/')[1]}`,
-                      ),
-                    )
-                    .catch((failure: unknown) =>
-                      setMessage({ kind: 'error', text: errorMessage(failure) }),
-                    )
-                }
-              >
-                {T.details.download}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <VersionList
+        document={document}
+        fetchFile={fetchVersionFile}
+        onError={(failure) => setMessage({ kind: 'error', text: errorMessage(failure) })}
+      />
 
       {!archived && (
         <section aria-labelledby="new-version-heading">
@@ -311,17 +211,7 @@ export function DocumentDetailsPage() {
         </section>
       )}
 
-      <section aria-labelledby="history-heading">
-        <h2 id="history-heading">{T.details.history}</h2>
-        <ol className="plain-list" data-testid="history">
-          {document.history.map((entry, index) => (
-            <li key={`${entry.createdAt}-${index}`}>
-              <span className="muted">{formatDateTime(entry.createdAt)}</span> ·{' '}
-              {describeHistory(entry)}
-            </li>
-          ))}
-        </ol>
-      </section>
+      <HistoryList history={document.history} />
 
       <button type="button" className="button button--danger" onClick={deleteDocument}>
         {T.details.delete}

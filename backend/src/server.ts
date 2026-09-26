@@ -4,6 +4,8 @@ import { ConfigError, loadConfig, type Config } from './config/env.js';
 import { createLogger } from './lib/logger.js';
 import { createPrismaClient } from './lib/prisma.js';
 import { createS3Client } from './lib/s3.js';
+import { UserRepository } from './repositories/user.repository.js';
+import { ensureOfficeAccount } from './services/office-account.js';
 
 /** Maximum time a graceful shutdown may take before the process is killed. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -32,6 +34,13 @@ const logger = createLogger(config);
 const prisma = createPrismaClient(config.databaseUrl);
 const s3 = createS3Client(config.s3);
 const app = createApp({ config, logger, prisma, s3 });
+
+// The office account comes from the configuration (Stage 15). A database problem
+// here must not stop the API: readiness reports the database, and the account is
+// ensured again on the next start.
+await ensureOfficeAccount(new UserRepository(prisma), config.office, logger).catch(
+  (error: unknown) => logger.error({ err: error }, 'Could not ensure the office account'),
+);
 
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port, env: config.nodeEnv }, `${APP_NAME} API listening`);

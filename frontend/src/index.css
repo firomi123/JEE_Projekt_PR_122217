@@ -550,3 +550,169 @@ h2 {
     align-items: end;
   }
 }
+
+/* ---------- Office panel (Stage 15) ---------- */
+
+.page--wide {
+  max-width: 80rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+
+.panel {
+  padding: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.panel h2 {
+  margin-top: 0;
+}
+
+.driver-card__name {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.details-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.details-list div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.details-list dt {
+  min-width: 7rem;
+  color: var(--color-muted);
+}
+
+.details-list dd {
+  margin: 0;
+}
+
+.button--reject {
+  background: var(--color-error);
+  color: #fff;
+  border-color: var(--color-error);
+}
+
+.field--invalid textarea {
+  border-color: var(--color-error);
+}
+
+.history-comment {
+  display: block;
+  margin-left: 1rem;
+  font-style: italic;
+}
+
+.rejection-reason {
+  margin: 0.25rem 0 0;
+}
+
+.office-document {
+  display: grid;
+  gap: 1rem;
+}
+
+.office-document__side {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+/* Table on wide screens, one card per row on phones (labels from data-label). */
+.office-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.office-table thead {
+  display: none;
+}
+
+.office-table tr {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.office-table td::before {
+  content: attr(data-label) ': ';
+  color: var(--color-muted);
+}
+
+.office-table__title {
+  font-weight: 700;
+}
+
+.office-table__sub {
+  display: block;
+  font-size: 0.875rem;
+}
+
+@media (min-width: 768px) {
+  .filters--office {
+    grid-template-columns: 2fr 2fr 1fr;
+  }
+
+  .filters--office.filters--with-status {
+    grid-template-columns: 2fr 2fr 1fr 1fr;
+  }
+
+  .office-table {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+  }
+
+  .office-table thead {
+    display: table-header-group;
+  }
+
+  .office-table tr {
+    display: table-row;
+    border: none;
+  }
+
+  .office-table th,
+  .office-table td {
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  .office-table th {
+    font-size: 0.875rem;
+    color: var(--color-muted);
+  }
+
+  .office-table td::before {
+    content: none;
+  }
+
+  .office-table tbody tr:hover {
+    background: var(--color-info-bg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .office-document {
+    grid-template-columns: 3fr 2fr;
+    align-items: start;
+  }
+}

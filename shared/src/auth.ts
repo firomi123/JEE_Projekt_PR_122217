@@ -83,11 +83,26 @@ export type RegisterData = z.output<typeof registerSchema>;
 export type LoginInput = z.input<typeof loginSchema>;
 export type LoginData = z.output<typeof loginSchema>;
 
+/**
+ * Account roles. `DRIVER` – a driver who photographs and submits his own documents
+ * (every publicly registered account); `OFFICE` – an office worker (dispatcher) who
+ * reviews the documents of all drivers (accounts created from the configuration).
+ */
+export const USER_ROLES = ['DRIVER', 'OFFICE'] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+/** Polish names of the roles, shown in the UI. */
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  DRIVER: 'Kierowca',
+  OFFICE: 'Biuro',
+};
+
 /** Public user data returned by the API (never contains the password hash). */
 export interface UserDto {
   id: string;
   username: string;
   email: string;
+  role: UserRole;
   /** ISO 8601 timestamp. */
   createdAt: string;
 }

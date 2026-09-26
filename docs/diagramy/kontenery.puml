@@ -5,7 +5,8 @@ skinparam dpi 200
 LAYOUT_TOP_DOWN()
 HIDE_STEREOTYPE()
 
-Person(kierowca, "Kierowca", "Telefon lub komputer z przeglądarką")
+Person(kierowca, "Kierowca", "Telefon z przeglądarką (PWA)")
+Person(biuro, "Pracownik biura", "Komputer z przeglądarką (panel biura)")
 Person(admin, "Administrator", "Nadzór nad systemem")
 
 System_Boundary(system, "Aplikacja kierowcy (Docker Compose)") {
@@ -20,6 +21,7 @@ System_Boundary(system, "Aplikacja kierowcy (Docker Compose)") {
 }
 
 Rel(kierowca, frontend, "HTTP", ":8090")
+Rel(biuro, frontend, "HTTP", ":8090")
 Rel(frontend, backend, "HTTP /api/*", "sieć app")
 Rel(backend, postgres, "SQL", "sieć data")
 Rel(backend, minio, "S3 API", "sieć data")

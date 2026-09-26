@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { UserRole } from './auth.js';
 
 /** Kinds of transport documents a driver keeps. */
 export const DOCUMENT_TYPES = ['CMR', 'WZ', 'INVOICE', 'OTHER'] as const;
@@ -55,6 +56,40 @@ export const STATUS_TRANSITIONS: Record<DocumentStatus, readonly DocumentStatus[
  */
 export function canTransition(from: DocumentStatus, to: DocumentStatus): boolean {
   return STATUS_TRANSITIONS[from].includes(to);
+}
+
+/**
+ * Who performs which transition of {@link STATUS_TRANSITIONS}. The driver prepares,
+ * submits, withdraws, corrects and archives his documents; only the office decides
+ * about a submitted document (accept or reject). Together the two roles cover every
+ * transition exactly once.
+ */
+export const ROLE_STATUS_TRANSITIONS: Record<
+  UserRole,
+  Partial<Record<DocumentStatus, readonly DocumentStatus[]>>
+> = {
+  DRIVER: {
+    DRAFT: ['SUBMITTED', 'ARCHIVED'],
+    SUBMITTED: ['DRAFT'],
+    REJECTED: ['DRAFT', 'SUBMITTED', 'ARCHIVED'],
+    ACCEPTED: ['ARCHIVED'],
+  },
+  OFFICE: {
+    SUBMITTED: ['ACCEPTED', 'REJECTED'],
+  },
+};
+
+/**
+ * Tells whether a user with the given role may move a document between two statuses.
+ *
+ * @param role - Role of the user making the change.
+ * @param from - Current status.
+ * @param to - Requested status.
+ * @returns `true` if {@link ROLE_STATUS_TRANSITIONS} lists `from → to` for the role;
+ *   `false` otherwise (also when the transition does not exist at all).
+ */
+export function canChangeStatus(role: UserRole, from: DocumentStatus, to: DocumentStatus): boolean {
+  return ROLE_STATUS_TRANSITIONS[role][from]?.includes(to) ?? false;
 }
 
 /** Maximum size of an uploaded file (10 MiB). */
@@ -151,11 +186,54 @@ export const listDocumentsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+/** Query string of `GET /api/office/documents`: the driver's filters plus a driver. */
+export const officeListQuerySchema = listDocumentsQuerySchema.extend({
+  driverId: z
+    .string()
+    .optional()
+    .transform((value) => (value === '' ? undefined : value))
+    .pipe(z.uuid({ error: 'Nieprawidłowy identyfikator kierowcy' }).optional()),
+});
+
+/** Decisions the office can make about a submitted document. */
+export const REVIEW_DECISIONS = ['ACCEPTED', 'REJECTED'] as const;
+export type ReviewDecision = (typeof REVIEW_DECISIONS)[number];
+
+/** Maximum length of the office's comment on a decision (as `changeNote`). */
+export const REVIEW_COMMENT_MAX = 500;
+
+/**
+ * Body of `POST /api/office/documents/:id/review`. The comment is optional when
+ * accepting and required when rejecting (the driver must know what to correct);
+ * blank → `null`.
+ */
+export const reviewDocumentSchema = z
+  .object({
+    decision: z.enum(REVIEW_DECISIONS, { error: 'Wybierz: akceptacja albo odrzucenie' }),
+    comment: z
+      .union([z.string(), z.null()])
+      .optional()
+      .transform((value) => (value == null || value.trim() === '' ? null : value.trim()))
+      .pipe(
+        z
+          .string()
+          .max(REVIEW_COMMENT_MAX, `Komentarz może mieć najwyżej ${REVIEW_COMMENT_MAX} znaków`)
+          .nullable(),
+      ),
+  })
+  .refine((data) => data.decision !== 'REJECTED' || data.comment !== null, {
+    path: ['comment'],
+    message: 'Podaj powód odrzucenia',
+  });
+
 export type CreateDocumentData = z.output<typeof createDocumentSchema>;
 export type NewVersionData = z.output<typeof newVersionSchema>;
 export type UpdateDocumentInput = z.input<typeof updateDocumentSchema>;
 export type UpdateDocumentData = z.output<typeof updateDocumentSchema>;
 export type ListDocumentsQuery = z.output<typeof listDocumentsQuerySchema>;
+export type OfficeListQuery = z.output<typeof officeListQuerySchema>;
+export type ReviewDocumentInput = z.input<typeof reviewDocumentSchema>;
+export type ReviewDocumentData = z.output<typeof reviewDocumentSchema>;
 
 /** One stored file version of a document (no storage or encryption details). */
 export interface DocumentVersionDto {
@@ -185,6 +263,10 @@ export interface DocumentHistoryDto {
   field: string | null;
   oldValue: string | null;
   newValue: string | null;
+  /** Office's comment on a decision (e.g. why a document was rejected); else `null`. */
+  comment: string | null;
+  /** Who made the change. */
+  changedBy: { username: string; role: UserRole };
   createdAt: string;
 }
 
@@ -220,4 +302,44 @@ export interface DocumentListResponse {
 /** Body of single-document responses. */
 export interface DocumentResponse {
   document: DocumentDetailsDto;
+}
+
+/** A driver as the office sees him: account and contact data from the profile. */
+export interface DriverDto {
+  id: string;
+  username: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  licenseNumber: string | null;
+  companyName: string | null;
+}
+
+/** Document in the office list, with its driver. */
+export interface OfficeDocumentSummaryDto extends DocumentSummaryDto {
+  owner: DriverDto;
+}
+
+/** Document details in the office view, with its driver. */
+export interface OfficeDocumentDetailsDto extends DocumentDetailsDto {
+  owner: DriverDto;
+}
+
+/** Body of `GET /api/office/documents`. */
+export interface OfficeDocumentListResponse {
+  items: OfficeDocumentSummaryDto[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/** Body of `GET /api/office/documents/:id` and of a review. */
+export interface OfficeDocumentResponse {
+  document: OfficeDocumentDetailsDto;
+}
+
+/** Body of `GET /api/office/drivers`. */
+export interface DriverListResponse {
+  drivers: DriverDto[];
 }

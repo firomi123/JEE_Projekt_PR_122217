@@ -319,14 +319,65 @@ z haszowaniem argon2.
 prawdziwym telefonie z systemem Android podłączonym przez ADB
 (\texttt{adb reverse} przekierowuje port aplikacji, dzięki czemu telefon
 otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
-W czasie realizacji projektu telefon nie był podłączony, dlatego aparat
-sprawdzono tylko w emulacji (wirtualna kamera Chromium i sztuczne zdjęcie
-12~Mpx wstrzykiwane do pola wyboru pliku). Procedurę testu ręcznego opisano
-w pliku README: przekierowanie portów poleceniem \texttt{adb reverse},
-otwarcie aplikacji w przeglądarce Chrome, zgoda na dostęp do aparatu,
-zdjęcie dokumentu, kadrowanie, zapis i instalacja PWA na ekranie głównym.
-Test na prawdziwym urządzeniu warto wykonać przed wdrożeniem, bo emulacja
-nie odtwarza autofokusu, ekspozycji ani rzeczywistej rozdzielczości aparatu.
+Test wykonano na telefonie Samsung Galaxy A26 z systemem Android~16
+i przeglądarką Chrome, podłączonym przez USB, na aplikacji ze stosu Docker
+(rysunek~\ref{fig:telefon}). Przebieg: rejestracja konta, dodanie dokumentu
+CMR, zgoda na dostęp do aparatu, zdjęcie wydrukowanej kartki tylnym
+aparatem, kadrowanie, zapis, przesłanie do biura i instalacja aplikacji na
+ekranie głównym (ikona ,,Kierowca'', uruchamiana bez paska adresu).
+Zdjęcie zapisało się jako JPEG 1440$\times$1080 pikseli o rozmiarze
+78\,891~B (77~kB). Jest to klatka ze strumienia tylnego aparatu, a jej
+rozmiar mieści się w limitach aplikacji (2000~pikseli, 1~MB), więc nie
+wymagała dodatkowej kompresji. Po wprowadzeniu panelu biura sprawdzono na
+tym samym telefonie widok dokumentu odrzuconego przez biuro z podanym
+powodem. Test potwierdził wyniki emulacji. Nie wykazał też problemów
+z uprawnieniami aparatu, obsługą dotykiem ani instalacją PWA.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-rejestracja.jpg}
+
+  \small (a) rejestracja
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-kadrowanie.jpg}
+
+  \small (b) kadrowanie zdjęcia z tylnego aparatu
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-historia.jpg}
+
+  \small (c) wersja 77~kB i historia po przesłaniu
+\end{minipage}
+
+\vspace{0.4cm}
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-instalacja.jpg}
+
+  \small (d) instalacja PWA
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-ikona.jpg}
+
+  \small (e) ikona na ekranie głównym
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-odrzucony.jpg}
+
+  \small (f) dokument odrzucony przez biuro
+\end{minipage}
+\caption{Test na prawdziwym telefonie (Samsung Galaxy A26, Android~16, Chrome)}
+\label{fig:telefon}
+\zrodlo{opracowanie własne (zrzuty ekranu telefonu)}
+\end{figure}
+
 
 \subsubsection{Testy PWA}
 
@@ -372,10 +423,12 @@ sesji przeglądarki: rejestracja, uzupełnienie profilu, zdjęcie dokumentu
 aparatem z obrotem i kompresją, zapis dokumentu, nowa wersja (PDF), przesłanie
 dokumentu i sprawdzenie statusu na liście z filtrem, pobranie obu wersji
 (sprawdzana jest treść pliku PDF i sygnatura JPEG zdjęcia), wylogowanie
-i ponowne zalogowanie. Cały zestaw 31 scenariuszy Playwright przechodzi
-zarówno na lokalnie uruchamianym backendzie, jak i na pełnym stosie Docker
-za serwerem nginx (\texttt{E2E\_BASE\_URL=http://localhost:8090}), czyli
-na tej samej konfiguracji, która jest wdrażana.
+i ponowne zalogowanie. Po Etapie~12 cały ówczesny zestaw 31 scenariuszy
+Playwright przechodził zarówno na lokalnie uruchamianym backendzie, jak i na
+pełnym stosie Docker za serwerem nginx
+(\texttt{E2E\_BASE\_URL=http://localhost:8090}), czyli na tej samej
+konfiguracji, która jest wdrażana. Po Etapie~15 zestaw liczy 36 scenariuszy
+i przechodzi na lokalnie uruchamianym backendzie.
 
 Pełny scenariusz wykrył kolejny błąd. Po wylogowaniu przyciskiem i ponownym
 zalogowaniu aplikacja przenosiła użytkownika na stronę, z której się
@@ -386,6 +439,65 @@ zalogowaniu na adres cudzego dokumentu. Najpierw dodano test, który ten błąd
 odtwarza (nie przechodził). Następnie kontekst uwierzytelnienia zaczął
 rozróżniać wylogowanie przyciskiem od automatycznego, a strażnik zapamiętuje
 adres powrotu tylko w drugim przypadku.
+
+\subsubsection{Testy ról i panelu biura}
+
+Etap~15 zaczął się od testów, które przed implementacją nie przechodziły
+z oczekiwanego powodu (brak roli w bazie, brak endpointów biura, brak modułu
+konta biura). Doszły:
+\begin{itemize}
+  \item 22 testy funkcjonalne API biura (\texttt{office.test.ts}):
+        rejestracja zawsze tworzy kierowcę; rola w odpowiedzi logowania
+        i \texttt{/api/auth/me}; 401 bez tokenu i 403 dla kierowcy na każdym
+        endpoincie biura oraz 403 dla biura na endpointach kierowcy; lista
+        dokumentów wszystkich kierowców (bez usuniętych) z danymi kierowcy
+        i filtrami (status, kierowca, typ, tekst); szczegóły i pobranie
+        odszyfrowanego pliku przez biuro; akceptacja i odrzucenie z zapisem
+        autora i komentarza w historii, którą widzi kierowca; brak powodu
+        odrzucenia (400); ocena dokumentu nieprzesłanego (409); dwie
+        jednoczesne decyzje, z których zapisuje się dokładnie jedna; pełna pętla
+        odrzucenie, poprawa, ponowne przesłanie, akceptacja; zakładanie konta
+        biura z konfiguracji (utworzenie, brak duplikatu, zmiana hasła, brak
+        awansu istniejącego konta kierowcy);
+  \item testy kierowcy: akceptacja lub odrzucenie własnego dokumentu kończy się
+        odpowiedzią 403 i nie zmienia statusu, a historia zapisuje autora zmiany;
+  \item testy jednostkowe: podział przejść statusu między role (w tym
+        sprawdzenie, że role razem pokrywają każde przejście dokładnie raz),
+        schemat decyzji biura, filtr kierowcy, walidacja konfiguracji konta
+        biura, opis historii i powodu odrzucenia oraz kierowanie ról do ich
+        części aplikacji;
+  \item cztery scenariusze Playwright (\texttt{office.spec.ts}): biuro
+        w przeglądarce na komputerze (1440$\times$900) widzi dokumenty
+        przesłane przez różnych kierowców i filtruje je po kierowcy; pełny obieg
+        w dwóch przeglądarkach naraz (biuro odrzuca z powodem, kierowca na
+        emulowanym telefonie widzi powód i przesyła dokument ponownie, biuro
+        akceptuje); rozdzielenie części aplikacji dla kierowcy i biura; filtr
+        wybrany w trakcie wyszukiwania (opis niżej).
+\end{itemize}
+
+Scenariusz pełnego obiegu wykrył błąd. Po ponownym przesłaniu dokumentu przez
+kierowcę biuro wracało do dokumentu i nadal widziało status ,,Odrzucony''
+bez przycisku ,,Akceptuj''. Przyczyną była pamięć podręczna TanStack Query,
+która przez 30~sekund uznawała dane za aktualne. Wcześniej dokumenty zmieniał
+tylko ich właściciel, więc to nie przeszkadzało. Test najpierw nie przechodził.
+Po zmianie (listy i szczegóły dokumentów pobierane na nowo przy każdym wejściu
+na ekran) przechodzi.
+
+Podczas pomiaru pokrycia (wolniejsze wykonanie z instrumentacją kodu)
+dwukrotnie nie przeszedł istniejący scenariusz filtrowania listy. Przyczyną
+był błąd w samej aplikacji. Wyszukiwanie jest stosowane 300~ms po ostatnim
+naciśnięciu klawisza, a funkcja wywoływana z opóźnieniem pamiętała filtry
+z chwili pisania. Jeśli w tym czasie użytkownik wybrał status, opóźnione
+wyszukiwanie przywracało poprzedni filtr. Najpierw dodano dwa scenariusze,
+które wybierają filtr od razu po wpisaniu tekstu, dla listy kierowcy
+i listy biura. Oba nie przechodziły, bo w adresie zostawało tylko
+wyszukiwanie. Poprawka używa w opóźnionym wywołaniu najnowszego stanu strony
+(\texttt{useEffectEvent} z React~19). Po niej scenariusze przechodzą.
+
+Nowy podział uprawnień zmienił też jeden dotychczasowy scenariusz: po
+przesłaniu dokumentu kierowca nie widzi już przycisku ,,Zaakceptowany'',
+tylko informację, że dokument czeka na decyzję biura. Scenariusz zaktualizowano
+zgodnie z nowym wymaganiem.
 
 \subsubsection{Pokrycie kodu}
 
@@ -407,13 +519,13 @@ tabela~\ref{tab:pokrycie}.
 \hline
 \textbf{Pakiet (rodzaj testów)} & \textbf{Instrukcje} & \textbf{Gałęzie} & \textbf{Funkcje} & \textbf{Linie} \\
 \hline
-Backend (funkcjonalne API i jednostkowe, 158 testów) & 95,2\,\% & 84,7\,\% & 97,1\,\% & 96,4\,\% \\
+Backend (funkcjonalne API i jednostkowe, 189 testów) & 95,1\,\% & 85,9\,\% & 97,5\,\% & 97,0\,\% \\
 \hline
-Pakiet \texttt{shared} (jednostkowe, 90 testów) & 96,1\,\% & 85,7\,\% & 100\,\% & 96,1\,\% \\
+Pakiet \texttt{shared} (jednostkowe, 109 testów) & 96,8\,\% & 90,3\,\% & 100\,\% & 96,8\,\% \\
 \hline
-Frontend (Playwright, 31 scenariuszy) & 93,9\,\% & 82,8\,\% & 90,8\,\% & 92,1\,\% \\
+Frontend (Playwright, 36 scenariuszy) & 94,1\,\% & 81,9\,\% & 89,9\,\% & 92,0\,\% \\
 \hline
-Frontend (tylko jednostkowe, 46 testów) & 12,3\,\% & 13,2\,\% & 7,6\,\% & -- \\
+Frontend (tylko jednostkowe, 62 testy) & 12,5\,\% & 14,5\,\% & 10,0\,\% & 12,8\,\% \\
 \hline
 \end{tabular}
 \zrodlo{opracowanie własne}

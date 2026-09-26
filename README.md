@@ -1,6 +1,6 @@
 # Aplikacja kierowcy – system zarządzania dokumentami
 
-Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowego (CMR, WZ) telefonem, kadrowanie i kompresja, szyfrowane przechowywanie, statusy i wersjonowanie dokumentów.
+Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowego (CMR, WZ) telefonem, kadrowanie i kompresja, szyfrowane przechowywanie, statusy i wersjonowanie dokumentów. Panel biura w przeglądarce na komputerze: przegląd dokumentów wszystkich kierowców, akceptacja albo odrzucenie z podaniem powodu.
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk). Autor: Piotr Roman (nr albumu 122217, grupa 4) – projekt indywidualny.
 
@@ -10,7 +10,8 @@ Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nau
 - Profil kierowcy, do którego przypisane są dokumenty.
 - Dokumenty: typ (CMR, WZ, faktura, inny), status z regułami przejść (roboczy → przesłany → zaakceptowany/odrzucony → zarchiwizowany), tytuł, numer, wyszukiwanie i filtry.
 - Zdjęcie dokumentu aparatem telefonu (`getUserMedia`), kadrowanie i obrót, kompresja przed wysłaniem (zdjęcie 12 Mpx: ok. 3,7 MB → 0,7–0,8 MB); alternatywnie plik JPG/PNG/PDF do 10 MB.
-- Wersje pliku i historia zmian (metadane, statusy).
+- Wersje pliku i historia zmian (metadane, statusy, komentarze biura).
+- Role: kierowca (rejestracja publiczna) i biuro (konto z `.env`). Panel biura pod `/biuro`: dokumenty do sprawdzenia, filtry (kierowca, typ, status, tekst), podgląd, dane kierowcy, akceptacja / odrzucenie z powodem, który kierowca widzi na telefonie. Kierowca nie może sam zaakceptować dokumentu.
 - Pliki szyfrowane AES-256-GCM przed zapisem w MinIO (szyfrowanie kopertowe: osobny klucz każdego pliku, zaszyfrowany kluczem głównym).
 - PWA: instalacja na ekranie głównym, start bez sieci (dokumenty nie są zapisywane na urządzeniu).
 - Monitoring: metryki Prometheus, dashboardy Grafana, alerty, logi w Loki, automatyczne restarty po awarii i zawieszeniu.
@@ -45,9 +46,14 @@ npm run docker:up         # docker compose up -d --build --wait
 
 `docker:up` kończy się dopiero, gdy wszystkie usługi są w stanie `healthy`. Pierwsze budowanie obrazów trwa kilka minut. Następnie otwórz http://localhost:8090, załóż konto i dodaj dokument.
 
+**Konto biura:** login `biuro` (`OFFICE_USERNAME`), hasło w `.env` (`OFFICE_PASSWORD`, generowane przez `env:init`). Backend zakłada to konto przy starcie; po zalogowaniu biuro trafia do panelu http://localhost:8090/biuro. Zmiana hasła w `.env` działa po restarcie backendu.
+
+> Jeśli budowanie obrazów kończy się błędem npm („Exit handler never called” / błąd certyfikatu), a antywirus skanuje połączenia HTTPS (np. Norton – zmienna `NODE_EXTRA_CA_CERTS` wskazuje jego certyfikat), kontenery nie ufają jego certyfikatowi. Wyłącz skanowanie HTTPS w antywirusie na czas budowania albo dodaj wyjątek dla Dockera.
+
 | Usługa                 | Adres                                                         |
 | ---------------------- | ------------------------------------------------------------- |
 | Aplikacja (nginx)      | http://localhost:8090                                         |
+| Panel biura            | http://localhost:8090/biuro (konto biura z `.env`)            |
 | Stan API               | http://localhost:8090/api/health/ready                        |
 | Dokumentacja API       | http://localhost:8090/api/docs                                |
 | Grafana                | http://localhost:3001 (login i hasło admina w `.env`)         |
@@ -80,7 +86,8 @@ npm run test:e2e                  # testy interfejsu w emulacji telefonu Pixel 7
 npm run test:infra:down
 ```
 
-- Backend: 158 testów (głównie funkcjonalne – żądania HTTP do API na prawdziwej bazie i MinIO), pakiet `shared`: 90, frontend: 46 testów jednostkowych, Playwright: 31 scenariuszy (w tym pełna ścieżka kierowcy od rejestracji do wylogowania).
+- Backend: 189 testów (głównie funkcjonalne – żądania HTTP do API na prawdziwej bazie i MinIO), pakiet `shared`: 109, frontend: 62 testy jednostkowe, Playwright: 36 scenariuszy (w tym pełna ścieżka kierowcy od rejestracji do wylogowania i obieg biuro ↔ kierowca w dwóch przeglądarkach).
+- Testów backendu nie uruchamiaj w trakcie testów Playwright – oba korzystają z tej samej bazy testowej, a testy backendu ją czyszczą (także konto biura testów E2E).
 - Pokrycie: `npm run test:coverage` (backend ok. 95 % instrukcji) i `npm run test:e2e:coverage` (frontend przez testy w przeglądarce ok. 94 %).
 - Testy Playwright na stosie Docker zamiast lokalnego backendu: `E2E_BASE_URL=http://localhost:8090 npm run test:e2e`.
 - Monitoring: `npm run monitoring:check` (składnia reguł i konfiguracji), `npm run chaos` (awaria, zawieszenie procesu i zatrzymanie bazy na działającym stosie – sprawdza restarty i alerty).
@@ -97,7 +104,9 @@ adb shell am start -a android.intent.action.VIEW -d http://localhost:8090
 adb exec-out screencap -p > ekran.png            # zrzut ekranu
 ```
 
-Scenariusz ręczny: rejestracja → Dodaj → „Zrób zdjęcie” (zgoda na aparat, tylny aparat) → kadrowanie i obrót → „Użyj zdjęcia” (informacja o kompresji) → zapis → podgląd dokumentu → zmiana statusu. Instalacja PWA: menu Chrome → „Dodaj do ekranu głównego” / „Zainstaluj aplikację”, potem uruchomienie z ikony w trybie wyłączonego internetu (baner o braku połączenia). Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komputerze.
+Tryb deweloperski zamiast Dockera: uruchom Vite z `npm run dev -w frontend -- --host 127.0.0.1` (domyślnie nasłuchuje tylko na IPv6 `::1`, a `adb reverse` łączy się z `127.0.0.1`) i przekieruj port 5173.
+
+Sprawdzono na Samsung Galaxy A26 (Android 16, Chrome). Scenariusz ręczny: rejestracja → Dodaj → „Zrób zdjęcie” (zgoda na aparat, tylny aparat) → kadrowanie i obrót → „Użyj zdjęcia” (informacja o kompresji) → zapis → podgląd dokumentu → zmiana statusu. Instalacja PWA: menu Chrome → „Dodaj do ekranu głównego” / „Zainstaluj aplikację”, potem uruchomienie z ikony w trybie wyłączonego internetu (baner o braku połączenia). Podgląd konsoli i sieci z telefonu: `chrome://inspect#devices` w Chrome na komputerze.
 
 ## Polecenia
 

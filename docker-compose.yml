@@ -144,6 +144,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (npm run env:init)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1h}
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY:?set MASTER_ENCRYPTION_KEY in .env (npm run env:init)}
+      # Office account ensured at startup (Stage 15); empty = no office account.
+      OFFICE_USERNAME: ${OFFICE_USERNAME:-}
+      OFFICE_PASSWORD: ${OFFICE_PASSWORD:-}
+      OFFICE_EMAIL: ${OFFICE_EMAIL:-}
     networks: [app, data, monitoring]
     # A memory leak ends in a controlled container restart instead of a hung host.
     mem_limit: 512m

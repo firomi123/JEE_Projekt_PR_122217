@@ -17,16 +17,17 @@ import { documentUpload } from '../middleware/upload.js';
  * - `GET /:id/versions/:versionNo/file` – download a decrypted file.
  *
  * @param controller - Document handlers.
- * @param authenticate - `requireAuth` middleware; runs before the (memory-hungry)
- *   multipart parser, so anonymous uploads are rejected before any file is read.
+ * @param guard - `requireAuth` + `requireRole(…, 'DRIVER')`; runs before the
+ *   (memory-hungry) multipart parser, so anonymous uploads and uploads of other roles
+ *   are rejected before any file is read.
  * @returns An Express router meant to be mounted at `/api/documents`.
  */
 export function createDocumentsRouter(
   controller: DocumentController,
-  authenticate: RequestHandler,
+  guard: RequestHandler[],
 ): Router {
   const router = createRouter();
-  router.use(authenticate);
+  router.use(guard);
   router.get('/', controller.list);
   router.post('/', documentUpload(), controller.create);
   router.get('/:id', controller.get);

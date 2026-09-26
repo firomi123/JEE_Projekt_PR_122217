@@ -11,15 +11,15 @@ import { validateBody } from '../middleware/validate-body.js';
  * - `PUT /` – replace the profile, body validated with the shared `profileSchema`.
  *
  * @param controller - Profile handlers.
- * @param authenticate - `requireAuth` middleware, applied to every route.
+ * @param guard - `requireAuth` + `requireRole(…, 'DRIVER')`, applied to every route.
  * @returns An Express router meant to be mounted at `/api/profile`.
  */
 export function createProfileRouter(
   controller: ProfileController,
-  authenticate: RequestHandler,
+  guard: RequestHandler[],
 ): Router {
   const router = createRouter();
-  router.use(authenticate);
+  router.use(guard);
   router.get('/', controller.get);
   router.put('/', validateBody(profileSchema), controller.update);
   return router;

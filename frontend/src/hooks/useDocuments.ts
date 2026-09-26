@@ -13,6 +13,9 @@ export const documentKeys = {
 /**
  * Loads one page of the document list.
  *
+ * Always refetched when a screen opens (`staleTime: 0`): documents are changed by
+ * two parties now (the driver and the office), so a cached copy may be outdated.
+ *
  * @param filters - Filters and paging (part of the cache key).
  * @returns The TanStack query; previous data is kept while the next page loads.
  */
@@ -20,12 +23,16 @@ export function useDocumentList(filters: api.DocumentFilters) {
   return useQuery({
     queryKey: documentKeys.list(filters),
     queryFn: () => api.listDocuments(filters),
+    staleTime: 0,
     placeholderData: (previous) => previous,
   });
 }
 
 /**
  * Loads one document with versions and history.
+ *
+ * Always refetched when a screen opens (`staleTime: 0`): documents are changed by
+ * two parties now (the driver and the office), so a cached copy may be outdated.
  *
  * @param id - Document id.
  * @returns The TanStack query.
@@ -34,6 +41,7 @@ export function useDocument(id: string) {
   return useQuery({
     queryKey: documentKeys.detail(id),
     queryFn: () => api.getDocument(id).then((response) => response.document),
+    staleTime: 0,
   });
 }
 

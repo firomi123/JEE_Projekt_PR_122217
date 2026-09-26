@@ -1,5 +1,6 @@
 import request from 'supertest';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { eventLoopMonitor } from '../src/lib/event-loop.js';
 import { buildTestApp, useTestApp, type TestContext } from './helpers/context.js';
 
 /** Unused local port: connections are refused immediately. */
@@ -7,6 +8,15 @@ const CLOSED_PORT_URL = '127.0.0.1:1';
 
 describe('GET /health (liveness)', () => {
   const { app } = useTestApp();
+
+  // These tests check liveness in normal operation. Loading the modules of the test
+  // file blocks the event loop for a while (much longer with coverage enabled), and
+  // that start-up block must not count, so the measurement window starts only after
+  // the monitor's timer has fired again. Detecting a real block: metrics.test.ts.
+  beforeAll(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    eventLoopMonitor.takeMaxDelayMs();
+  });
 
   it('returns 200 with status "ok"', async () => {
     const response = await request(app).get('/health');

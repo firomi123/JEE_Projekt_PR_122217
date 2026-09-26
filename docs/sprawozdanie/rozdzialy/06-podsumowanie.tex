@@ -9,7 +9,11 @@ Uzupełnia profil, do którego przypisane są jego dokumenty. Dokument fotografu
 aparatem telefonu, kadruje i obraca zdjęcie, a aplikacja kompresuje je przed
 wysłaniem (zdjęcie 12~Mpx o rozmiarze 3,7~MB zajmuje po kompresji około
 0,7--0,8~MB). Dokumenty mają typy, statusy z regułami przejść, kolejne wersje
-pliku i historię zmian. Można je wyszukiwać i filtrować.
+pliku i historię zmian. Można je wyszukiwać i filtrować. Przesłany dokument
+ocenia biuro w panelu w przeglądarce na komputerze: akceptuje go albo odrzuca
+z podaniem powodu, który kierowca widzi na telefonie.
+Zdjęcie dokumentu, jego wysłanie, instalację PWA oraz odrzucenie i ponowne
+przesłanie sprawdzono na prawdziwym telefonie (podrozdział~\ref{sec:testy}).
 
 Wymagania niefunkcjonalne zrealizowano następująco:
 \begin{itemize}
@@ -26,10 +30,10 @@ Wymagania niefunkcjonalne zrealizowano następująco:
         dashboardy Grafany, 12 reguł alertów, centralne logi w Loki oraz
         automatyczne restarty po awarii i po zawieszeniu procesu, sprawdzone
         testem chaosu.
-  \item \textbf{Jakość}: 158 testów backendu (głównie funkcjonalnych, na
-        prawdziwej bazie i magazynie plików), 90 testów pakietu wspólnego,
-        46 testów jednostkowych frontendu i 31 scenariuszy Playwright
-        w emulacji telefonu. Pokrycie kodu przekracza 93~\% instrukcji
+  \item \textbf{Jakość}: 189 testów backendu (głównie funkcjonalnych, na
+        prawdziwej bazie i magazynie plików), 109 testów pakietu wspólnego,
+        62 testy jednostkowe frontendu i 36 scenariuszy Playwright
+        w emulacji telefonu i przeglądarki na komputerze. Pokrycie kodu przekracza 93~\% instrukcji
         w każdym pakiecie (frontend mierzony testami w przeglądarce).
 \end{itemize}
 
@@ -51,7 +55,12 @@ pobieżne ręczne sprawdzenie:
   \item metryki HTTP miały błędne etykiety tras, bo Express przywraca
         ścieżkę bazową routera przed zakończeniem odpowiedzi;
   \item pomiar opóźnienia pętli zdarzeń tracił próbkę po wyzerowaniu
-        histogramu, więc zawieszenie procesu nie byłoby wykryte.
+        histogramu, więc zawieszenie procesu nie byłoby wykryte;
+  \item po odrzuceniu dokumentu przez biuro i ponownym przesłaniu go przez
+        kierowcę biuro nadal widziało stary status, bo pamięć podręczna
+        uznawała dane za aktualne przez 30~sekund;
+  \item filtr statusu wybrany w ciągu 300~ms od wpisania tekstu w wyszukiwarkę
+        był cofany przez opóźnione wyszukiwanie.
 \end{itemize}
 Każdy z tych błędów najpierw odtworzono testem, który nie przechodził,
 a dopiero potem poprawiono kod. Testy pozostają w zestawie i chronią przed
@@ -72,12 +81,12 @@ zawieszeniem procesu potwierdziły, że system sam wraca do działania.
 
 \subsection{Ograniczenia}
 
-Aparat sprawdzono tylko w emulacji (wirtualna kamera Chromium), bez
-prawdziwego telefonu. Procedura testu na urządzeniu z Androidem jest opisana
-w pliku README. Potok ciągłej integracji jest przygotowany, ale nie był
-uruchomiony, bo repozytorium nie ma zdalnej kopii. Aplikacja ma jedną rolę
-użytkownika, więc zmiany statusu, które w praktyce należałyby do biura
-(akceptacja, odrzucenie), wykonuje sam kierowca.
+Na prawdziwym urządzeniu aplikację sprawdzono na jednym telefonie z systemem
+Android. Inne urządzenia, w tym iPhone z przeglądarką Safari, nie były
+testowane. Potok ciągłej integracji jest przygotowany, ale nie był
+uruchomiony, bo repozytorium nie ma zdalnej kopii. Konto biura jest jedno
+i powstaje z konfiguracji serwera. Aplikacja nie ma zarządzania pracownikami
+biura (dodawania kont, ról, podziału kierowców między dyspozytorów).
 
 \subsection{Możliwości rozwoju}
 
@@ -87,8 +96,9 @@ użytkownika, więc zmiany statusu, które w praktyce należałyby do biura
         (podrozdział~\ref{sec:przeglad}).
   \item \textbf{Rozpoznawanie tekstu (OCR)}: odczyt numeru dokumentu,
         nadawcy i odbiorcy ze zdjęcia i wypełnianie nimi formularza.
-  \item \textbf{Panel dyspozytora}: rola pracownika biura, który akceptuje
-        lub odrzuca dokumenty kierowców i widzi dokumenty całej floty.
+  \item \textbf{Rozbudowa panelu biura}: zarządzanie kontami pracowników
+        biura, przypisanie kierowców do dyspozytorów i powiadomienia (push,
+        e-mail) o decyzji biura oraz o nowych dokumentach do sprawdzenia.
   \item \textbf{e-CMR i eFTI}: import i eksport elektronicznych listów
         przewozowych oraz integracja z platformami eFTI, które od 2027~r.
         mają być w pełni honorowane przez organy kontrolne.

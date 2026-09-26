@@ -92,3 +92,45 @@ describe('loadConfig', () => {
     expect(error.message).not.toContain('my-short-secret');
   });
 });
+
+describe('loadConfig – office account', () => {
+  it('has no office account when OFFICE_USERNAME and OFFICE_PASSWORD are not set', () => {
+    expect(loadConfig(validEnv).office).toBeNull();
+  });
+
+  it('reads the office account and derives the e-mail when it is not given', () => {
+    const config = loadConfig({
+      ...validEnv,
+      OFFICE_USERNAME: 'Biuro',
+      OFFICE_PASSWORD: 'Biuro-Haslo1!',
+    });
+
+    expect(config.office).toEqual({
+      username: 'biuro',
+      email: 'biuro@office.invalid',
+      password: 'Biuro-Haslo1!',
+    });
+  });
+
+  it('requires both variables together', () => {
+    expect(configErrorFor({ ...validEnv, OFFICE_USERNAME: 'biuro' }).problems).toEqual([
+      expect.stringMatching(/^OFFICE_PASSWORD:/),
+    ]);
+    expect(configErrorFor({ ...validEnv, OFFICE_PASSWORD: 'Biuro-Haslo1!' }).problems).toEqual([
+      expect.stringMatching(/^OFFICE_USERNAME:/),
+    ]);
+  });
+
+  it('applies the registration rules to the office login and password', () => {
+    const error = configErrorFor({
+      ...validEnv,
+      OFFICE_USERNAME: 'b!',
+      OFFICE_PASSWORD: 'slabe',
+    });
+
+    expect(new Set(error.problems.map((p) => p.split(':')[0]))).toEqual(
+      new Set(['OFFICE_PASSWORD', 'OFFICE_USERNAME']),
+    );
+    expect(error.message).not.toContain('slabe');
+  });
+});

@@ -73,6 +73,8 @@ const replacements = {
   JWT_SECRET: randomBytes(48).toString('base64'),
   MASTER_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
   GRAFANA_ADMIN_PASSWORD: hexSecret(12),
+  // Must pass the registration password rules: uppercase, digit, special character.
+  OFFICE_PASSWORD: `Biuro-${hexSecret(10)}-9`,
   DATABASE_URL:
     `postgresql://${defaults.get('POSTGRES_USER')}:${postgresPassword}` +
     `@localhost:${defaults.get('POSTGRES_PORT')}/${defaults.get('POSTGRES_DB')}`,

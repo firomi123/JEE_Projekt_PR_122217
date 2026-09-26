@@ -8,7 +8,11 @@ import {
   MAX_UPLOAD_BYTES,
   PROFILE_LIMITS,
   registerSchema,
+  REVIEW_COMMENT_MAX,
+  REVIEW_DECISIONS,
+  ROLE_STATUS_TRANSITIONS,
   STATUS_TRANSITIONS,
+  USER_ROLES,
 } from '@driver-docs/shared';
 import { z } from 'zod';
 
@@ -94,10 +98,58 @@ const changeNoteField = {
   description: 'Opis wersji, np. skan z pieczątką odbiorcy',
 };
 
-/** Human-readable list of allowed status transitions for the PATCH description. */
-const transitionsText = Object.entries(STATUS_TRANSITIONS)
+/** Human-readable list of the status changes a driver may make (PATCH description). */
+const transitionsText = Object.entries(ROLE_STATUS_TRANSITIONS.DRIVER)
+  .map(([from, to]) => `${from} → ${to.join(', ')}`)
+  .join('; ');
+
+/** Every status transition (for reference in the PATCH description). */
+const allTransitionsText = Object.entries(STATUS_TRANSITIONS)
   .map(([from, to]) => `${from} → ${to.length > 0 ? to.join(', ') : '(brak, tylko do odczytu)'}`)
   .join('; ');
+
+/** Responses shared by the office endpoints that address one document. */
+const officeDocumentErrors = {
+  401: errorResponse('Brak, błędny lub wygasły token'),
+  403: errorResponse('Konto nie jest kontem biura (FORBIDDEN)'),
+  404: errorResponse('Dokument nie istnieje albo został usunięty'),
+};
+
+/** Query parameters shared by the driver list and the office list. */
+const listParameters = [
+  { name: 'type', in: 'query', schema: { type: 'string', enum: DOCUMENT_TYPES } },
+  { name: 'status', in: 'query', schema: { type: 'string', enum: DOCUMENT_STATUSES } },
+  {
+    name: 'q',
+    in: 'query',
+    description: 'Szukany tekst w tytule lub numerze (bez rozróżniania wielkości liter)',
+    schema: { type: 'string', maxLength: 100 },
+  },
+  { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+  {
+    name: 'pageSize',
+    in: 'query',
+    schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+  },
+];
+
+/** Path parameter `versionNo` of a file download. */
+const versionNoParam = {
+  name: 'versionNo',
+  in: 'path',
+  required: true,
+  schema: { type: 'integer', minimum: 1 },
+};
+
+/** Response of a file download (both the driver and the office endpoint). */
+const fileResponse = {
+  description: 'Plik (ETag = SHA-256 zawartości)',
+  content: {
+    'application/pdf': { schema: { type: 'string', format: 'binary' } },
+    'image/jpeg': { schema: { type: 'string', format: 'binary' } },
+    'image/png': { schema: { type: 'string', format: 'binary' } },
+  },
+};
 
 /**
  * Builds the OpenAPI 3.0 specification of the REST API, served at
@@ -128,6 +180,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: 'auth', description: 'Rejestracja i logowanie' },
       { name: 'profile', description: 'Profil kierowcy' },
       { name: 'documents', description: 'Dokumenty, wersje plików i historia zmian' },
+      { name: 'office', description: 'Panel biura: przegląd i ocena dokumentów kierowców' },
     ],
     paths: {
       '/health': {
@@ -222,23 +275,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         get: {
           tags: ['documents'],
           summary: 'Lista własnych dokumentów (bez usuniętych), od ostatnio zmienionego',
+          description:
+            'Endpointy /api/documents i /api/profile są tylko dla kont kierowców (biuro: 403).',
           security: [{ bearerAuth: [] }],
-          parameters: [
-            { name: 'type', in: 'query', schema: { type: 'string', enum: DOCUMENT_TYPES } },
-            { name: 'status', in: 'query', schema: { type: 'string', enum: DOCUMENT_STATUSES } },
-            {
-              name: 'q',
-              in: 'query',
-              description: 'Szukany tekst w tytule lub numerze (bez rozróżniania wielkości liter)',
-              schema: { type: 'string', maxLength: 100 },
-            },
-            { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
-            {
-              name: 'pageSize',
-              in: 'query',
-              schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-            },
-          ],
+          parameters: listParameters,
           responses: {
             200: jsonResponse('Strona listy', 'DocumentListResponse'),
             400: errorResponse('Niepoprawny filtr lub stronicowanie'),
@@ -279,7 +319,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         patch: {
           tags: ['documents'],
           summary: 'Zmiana tytułu, numeru lub statusu (każda zmiana trafia do historii)',
-          description: `Dozwolone zmiany statusu: ${transitionsText}.`,
+          description:
+            `Zmiany statusu wykonywane przez kierowcę: ${transitionsText}. ` +
+            `Akceptację i odrzucenie przesłanego dokumentu wykonuje biuro (POST /api/office/documents/{id}/review). ` +
+            `Wszystkie przejścia: ${allTransitionsText}.`,
           security: [{ bearerAuth: [] }],
           parameters: [documentIdParam],
           requestBody: {
@@ -290,6 +333,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             200: jsonResponse('Dokument po zmianie', 'DocumentResponse'),
             400: errorResponse('Niepoprawne dane lub pusta zmiana'),
             ...documentErrors,
+            403: errorResponse('Tę zmianę statusu wykonuje biuro (STATUS_CHANGE_NOT_ALLOWED)'),
             409: errorResponse(
               'Niedozwolona zmiana statusu (INVALID_STATUS_TRANSITION) albo dokument zarchiwizowany (DOCUMENT_ARCHIVED)',
             ),
@@ -328,27 +372,105 @@ export function buildOpenApiDocument(): Record<string, unknown> {
           security: [{ bearerAuth: [] }],
           parameters: [
             documentIdParam,
-            {
-              name: 'versionNo',
-              in: 'path',
-              required: true,
-              schema: { type: 'integer', minimum: 1 },
-            },
+            versionNoParam,
             { name: 'download', in: 'query', schema: { type: 'string', enum: ['1'] } },
           ],
           responses: {
-            200: {
-              description: 'Plik (ETag = SHA-256 zawartości)',
-              content: {
-                'application/pdf': { schema: { type: 'string', format: 'binary' } },
-                'image/jpeg': { schema: { type: 'string', format: 'binary' } },
-                'image/png': { schema: { type: 'string', format: 'binary' } },
-              },
-            },
+            200: fileResponse,
             ...documentErrors,
             500: errorResponse(
               'Plik w magazynie nie przeszedł kontroli integralności (FILE_INTEGRITY_ERROR)',
             ),
+          },
+        },
+      },
+
+      '/api/office/documents': {
+        get: {
+          tags: ['office'],
+          summary:
+            'Biuro: dokumenty wszystkich kierowców (bez usuniętych), od ostatnio zmienionego',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            ...listParameters,
+            {
+              name: 'driverId',
+              in: 'query',
+              description: 'Tylko dokumenty wskazanego kierowcy',
+              schema: { type: 'string', format: 'uuid' },
+            },
+          ],
+          responses: {
+            200: jsonResponse('Strona listy z kierowcami', 'OfficeDocumentListResponse'),
+            400: errorResponse('Niepoprawny filtr lub stronicowanie'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+            403: errorResponse('Konto nie jest kontem biura (FORBIDDEN)'),
+          },
+        },
+      },
+      '/api/office/documents/{id}': {
+        get: {
+          tags: ['office'],
+          summary: 'Biuro: szczegóły dokumentu dowolnego kierowcy z danymi kierowcy',
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          responses: {
+            200: jsonResponse('Dokument', 'OfficeDocumentResponse'),
+            ...officeDocumentErrors,
+          },
+        },
+      },
+      '/api/office/documents/{id}/versions/{versionNo}/file': {
+        get: {
+          tags: ['office'],
+          summary: 'Biuro: pobranie odszyfrowanego pliku wersji',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            documentIdParam,
+            versionNoParam,
+            { name: 'download', in: 'query', schema: { type: 'string', enum: ['1'] } },
+          ],
+          responses: {
+            200: fileResponse,
+            ...officeDocumentErrors,
+            500: errorResponse(
+              'Plik w magazynie nie przeszedł kontroli integralności (FILE_INTEGRITY_ERROR)',
+            ),
+          },
+        },
+      },
+      '/api/office/documents/{id}/review': {
+        post: {
+          tags: ['office'],
+          summary: 'Biuro: akceptacja albo odrzucenie przesłanego dokumentu (SUBMITTED)',
+          description:
+            'Przy odrzuceniu komentarz (powód) jest wymagany; trafia do historii dokumentu, ' +
+            'którą widzi kierowca. Z dwóch jednoczesnych decyzji wygrywa jedna.',
+          security: [{ bearerAuth: [] }],
+          parameters: [documentIdParam],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: ref('ReviewRequest') } },
+          },
+          responses: {
+            200: jsonResponse('Dokument po decyzji', 'OfficeDocumentResponse'),
+            400: errorResponse('Brak decyzji albo brak powodu odrzucenia'),
+            ...officeDocumentErrors,
+            409: errorResponse(
+              'Dokument nie jest przesłany (INVALID_STATUS_TRANSITION) albo jest zarchiwizowany (DOCUMENT_ARCHIVED)',
+            ),
+          },
+        },
+      },
+      '/api/office/drivers': {
+        get: {
+          tags: ['office'],
+          summary: 'Biuro: lista kierowców z danymi kontaktowymi (np. do filtra)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: jsonResponse('Kierowcy', 'DriverListResponse'),
+            401: errorResponse('Brak, błędny lub wygasły token'),
+            403: errorResponse('Konto nie jest kontem biura (FORBIDDEN)'),
           },
         },
       },
@@ -362,11 +484,16 @@ export function buildOpenApiDocument(): Record<string, unknown> {
         LoginRequest: requestSchema(loginSchema),
         User: {
           type: 'object',
-          required: ['id', 'username', 'email', 'createdAt'],
+          required: ['id', 'username', 'email', 'role', 'createdAt'],
           properties: {
             id: { type: 'string', format: 'uuid' },
             username: { type: 'string', example: 'jan_kowalski' },
             email: { type: 'string', format: 'email' },
+            role: {
+              type: 'string',
+              enum: USER_ROLES,
+              description: 'DRIVER – rejestracja publiczna; OFFICE – konto biura z konfiguracji',
+            },
             createdAt: { type: 'string', format: 'date-time' },
           },
         },
@@ -489,7 +616,69 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             field: { type: 'string', nullable: true },
             oldValue: { type: 'string', nullable: true },
             newValue: { type: 'string', nullable: true },
+            comment: {
+              type: 'string',
+              nullable: true,
+              description: 'Komentarz biura do decyzji (powód odrzucenia)',
+            },
+            changedBy: {
+              type: 'object',
+              properties: {
+                username: { type: 'string' },
+                role: { type: 'string', enum: USER_ROLES },
+              },
+            },
             createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        Driver: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            username: { type: 'string' },
+            firstName: { type: 'string', nullable: true },
+            lastName: { type: 'string', nullable: true },
+            phone: { type: 'string', nullable: true },
+            licenseNumber: { type: 'string', nullable: true },
+            companyName: { type: 'string', nullable: true },
+          },
+        },
+        DriverListResponse: {
+          type: 'object',
+          properties: { drivers: { type: 'array', items: ref('Driver') } },
+        },
+        ReviewRequest: {
+          type: 'object',
+          required: ['decision'],
+          properties: {
+            decision: { type: 'string', enum: REVIEW_DECISIONS },
+            comment: {
+              type: 'string',
+              nullable: true,
+              maxLength: REVIEW_COMMENT_MAX,
+              description: 'Wymagany przy REJECTED',
+              example: 'Brak pieczątki odbiorcy',
+            },
+          },
+        },
+        OfficeDocumentSummary: {
+          allOf: [ref('DocumentSummary'), { type: 'object', properties: { owner: ref('Driver') } }],
+        },
+        OfficeDocumentDetails: {
+          allOf: [ref('DocumentDetails'), { type: 'object', properties: { owner: ref('Driver') } }],
+        },
+        OfficeDocumentResponse: {
+          type: 'object',
+          properties: { document: ref('OfficeDocumentDetails') },
+        },
+        OfficeDocumentListResponse: {
+          type: 'object',
+          properties: {
+            items: { type: 'array', items: ref('OfficeDocumentSummary') },
+            page: { type: 'integer' },
+            pageSize: { type: 'integer' },
+            total: { type: 'integer' },
+            totalPages: { type: 'integer' },
           },
         },
         DocumentDetails: {

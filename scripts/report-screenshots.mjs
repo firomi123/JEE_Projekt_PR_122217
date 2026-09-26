@@ -3,14 +3,17 @@
  * Takes the screenshots used in the report (docs/sprawozdanie/img/zrzuty/) from a
  * running deployment, in an emulated Pixel 7 phone with a fake camera.
  *
- * Creates a demo account with a few documents through the API, then photographs:
- * login, document list, document details, camera, photo editor and profile.
+ * Creates a demo driver with a few documents through the API (the office account
+ * from `.env` accepts one and rejects another), then photographs the driver's
+ * screens (login, list, details, camera, photo editor, profile)
+ * in an emulated phone and the office panel (list, document) in a desktop browser.
  *
  * Usage: node scripts/report-screenshots.mjs [baseUrl]   (default http://localhost:8090)
- * Requires the Playwright browser (npm run install:browsers -w e2e).
+ * Requires the Playwright browser (npm run install:browsers -w e2e) and
+ * OFFICE_USERNAME / OFFICE_PASSWORD in the root `.env`.
  */
 /* global document -- the page.evaluate callbacks run in the browser */
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, devices } from '@playwright/test';
@@ -25,6 +28,21 @@ const outDir = resolve(
   'zrzuty',
 );
 mkdirSync(outDir, { recursive: true });
+
+/**
+ * Reads one variable from the root `.env` file.
+ *
+ * @param {string} name - Variable name.
+ * @returns {string} Its value.
+ * @throws {Error} If the variable is missing or empty.
+ */
+function envValue(name) {
+  const envFile = resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env');
+  const match = new RegExp(`^${name}=(.*)$`, 'm').exec(readFileSync(envFile, 'utf8'));
+  if (!match?.[1]) throw new Error(`${name} is not set in .env`);
+  return match[1].trim();
+}
+const office = { username: envValue('OFFICE_USERNAME'), password: envValue('OFFICE_PASSWORD') };
 
 const username = `kierowca_${Date.now().toString(36)}`;
 const password = 'Tajne123!';
@@ -119,6 +137,12 @@ const login = await (
   await page.request.post('/api/auth/login', { data: { username, password } })
 ).json();
 const auth = { Authorization: `Bearer ${login.accessToken}` };
+const officeLogin = await (await page.request.post('/api/auth/login', { data: office })).json();
+const officeAuth = { Authorization: `Bearer ${officeLogin.accessToken}` };
+await page.request.put('/api/profile', {
+  headers: auth,
+  data: { firstName: 'Jan', lastName: 'Kowalski', companyName: 'Trans-Pol Sp. z o.o.' },
+});
 const demo = [
   ['CMR', 'CMR Łódź – Berlin', 'PL 555/2026', 'SUBMITTED'],
   ['WZ', 'WZ magazyn Stryków', 'WZ/123/2026', 'ACCEPTED'],
@@ -142,16 +166,23 @@ for (const [type, title, number, status] of demo) {
   });
   const { document } = await response.json();
   firstId ??= document.id;
-  const path = {
-    SUBMITTED: ['SUBMITTED'],
-    ACCEPTED: ['SUBMITTED', 'ACCEPTED'],
-    REJECTED: ['SUBMITTED', 'REJECTED'],
-    DRAFT: [],
-  }[status];
-  for (const next of path) {
+  if (status !== 'DRAFT') {
     await page.request.patch(`/api/documents/${document.id}`, {
       headers: auth,
-      data: { status: next },
+      data: { status: 'SUBMITTED' },
+    });
+  }
+  // Accepting and rejecting is up to the office.
+  if (status === 'ACCEPTED' || status === 'REJECTED') {
+    await page.request.post(`/api/office/documents/${document.id}/review`, {
+      headers: officeAuth,
+      data: {
+        decision: status,
+        comment:
+          status === 'REJECTED'
+            ? 'Nieczytelna pieczątka odbiorcy – zrób zdjęcie jeszcze raz'
+            : null,
+      },
     });
   }
 }
@@ -188,6 +219,26 @@ await page.getByLabel('Firma przewozowa').fill('Trans-Pol Sp. z o.o.');
 await page.getByRole('button', { name: 'Zapisz profil' }).click();
 await page.getByRole('status').waitFor();
 await shot('profil');
+
+// Office panel in a desktop browser (1440×900).
+const desktop = await browser.newContext({
+  ...devices['Desktop Chrome'],
+  viewport: { width: 1440, height: 900 },
+  baseURL,
+  locale: 'pl-PL',
+});
+const officePage = await desktop.newPage();
+await officePage.goto('/logowanie');
+await officePage.getByLabel('Login').fill(office.username);
+await officePage.getByLabel('Hasło').fill(office.password);
+await officePage.getByRole('button', { name: 'Zaloguj się' }).click();
+await officePage.getByTestId('office-row').first().waitFor();
+await officePage.screenshot({ path: resolve(outDir, 'biuro-lista.png') });
+await officePage.getByRole('link', { name: 'Otwórz dokument CMR Łódź – Berlin' }).first().click();
+await officePage.getByRole('img', { name: /Podgląd dokumentu/ }).waitFor();
+await officePage.getByLabel('Komentarz dla kierowcy').fill('Brak podpisu odbiorcy w polu 24');
+await officePage.screenshot({ path: resolve(outDir, 'biuro-dokument.png') });
+await desktop.close();
 
 await browser.close();
 console.log(`Screenshots written to ${outDir}`);

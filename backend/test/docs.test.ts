@@ -29,6 +29,11 @@ describe('API documentation', () => {
         'DELETE /api/documents/{id}',
         'POST /api/documents/{id}/versions',
         'GET /api/documents/{id}/versions/{versionNo}/file',
+        'GET /api/office/documents',
+        'GET /api/office/documents/{id}',
+        'GET /api/office/documents/{id}/versions/{versionNo}/file',
+        'POST /api/office/documents/{id}/review',
+        'GET /api/office/drivers',
       ].sort(),
     );
   });

@@ -6,7 +6,7 @@ import {
   type DocumentStatus,
   type DocumentType,
 } from '@driver-docs/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { errorMessage } from '../api/errors';
 import { Alert } from '../components/Alert';
@@ -75,13 +75,21 @@ export function DocumentsPage() {
     );
   };
 
+  /**
+   * Applies the typed search text to the URL. An effect event always sees the
+   * latest render, so a filter changed while the delay was running is kept (a plain
+   * closure from the time of typing would write back the old filters).
+   *
+   * @param text - Text typed in the search box.
+   */
+  const applySearch = useEffectEvent((text: string) => update({ q: text.trim() }));
+
   // Debounced search: apply the typed text shortly after the user stops typing.
   useEffect(() => {
     if (search === q) return;
-    const timer = window.setTimeout(() => update({ q: search.trim() }), SEARCH_DEBOUNCE_MS);
+    const timer = window.setTimeout(() => applySearch(search), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to typing
-  }, [search]);
+  }, [search, q]);
 
   const filtered = Boolean(type || status || q);
   const typeOptions: [string, string][] = [

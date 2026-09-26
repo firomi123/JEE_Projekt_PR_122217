@@ -10,7 +10,7 @@ import type { Request, Response } from 'express';
 import { ValidationError } from '../errors/app-error.js';
 import type { Metrics } from '../lib/metrics.js';
 import { readUpload } from '../middleware/upload.js';
-import type { DocumentService } from '../services/document.service.js';
+import type { DocumentService, DownloadedFile } from '../services/document.service.js';
 
 /**
  * Reads a route parameter as a string.
@@ -19,9 +19,32 @@ import type { DocumentService } from '../services/document.service.js';
  * @param name - Parameter name.
  * @returns The parameter value (empty string if absent).
  */
-function param(req: Request, name: string): string {
+export function param(req: Request, name: string): string {
   const value = req.params[name];
   return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Sends a decrypted document file. Shown inline by default (preview), as an
+ * attachment with `?download=1`. The response must not be cached
+ * (`private, no-store`) because documents are confidential; the ETag is the SHA-256.
+ *
+ * @param req - Request (reads `download` from the query string).
+ * @param res - Receives the bytes with Content-Type, Content-Disposition (ASCII
+ *   `filename` plus UTF-8 `filename*`), Content-Length, ETag and `nosniff`.
+ * @param file - Decrypted and verified file.
+ */
+export function sendFile(req: Request, res: Response, file: DownloadedFile): void {
+  const disposition = req.query.download === '1' ? 'attachment' : 'inline';
+  res.set({
+    'Content-Type': file.mimeType,
+    'Content-Length': String(file.content.length),
+    'Content-Disposition': `${disposition}; filename="${file.asciiFilename}"; filename*=UTF-8''${encodeURIComponent(file.utf8Filename)}`,
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff',
+    ETag: `"${file.sha256}"`,
+  });
+  res.end(file.content);
 }
 
 /** HTTP handlers of `/api/documents`. All routes require authentication. */
@@ -147,15 +170,6 @@ export class DocumentController {
       param(req, 'id'),
       param(req, 'versionNo'),
     );
-    const disposition = req.query.download === '1' ? 'attachment' : 'inline';
-    res.set({
-      'Content-Type': file.mimeType,
-      'Content-Length': String(file.content.length),
-      'Content-Disposition': `${disposition}; filename="${file.asciiFilename}"; filename*=UTF-8''${encodeURIComponent(file.utf8Filename)}`,
-      'Cache-Control': 'private, no-store',
-      'X-Content-Type-Options': 'nosniff',
-      ETag: `"${file.sha256}"`,
-    });
-    res.end(file.content);
+    sendFile(req, res, file);
   };
 }

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  canChangeStatus,
   canTransition,
   DOCUMENT_STATUS_LABELS,
   type AllowedMimeType,
@@ -8,11 +9,16 @@ import {
   type DocumentListResponse,
   type DocumentStatus,
   type DocumentSummaryDto,
+  type DriverDto,
   type ListDocumentsQuery,
   type NewVersionData,
+  type OfficeDocumentDetailsDto,
+  type OfficeDocumentListResponse,
+  type OfficeListQuery,
+  type ReviewDocumentData,
   type UpdateDocumentData,
 } from '@driver-docs/shared';
-import type { Document } from '../generated/prisma/client.js';
+import type { Document, DocumentVersion } from '../generated/prisma/client.js';
 import { AppError, NotFoundError } from '../errors/app-error.js';
 import { EXTENSIONS } from '../lib/file-type.js';
 import type {
@@ -20,9 +26,11 @@ import type {
   DocumentRepository,
   DocumentWithCurrentType,
   DocumentWithDetails,
+  DocumentWithDetailsAndOwner,
   HistoryEntry,
   NewVersionRow,
 } from '../repositories/document.repository.js';
+import type { DriverWithProfile } from '../repositories/user.repository.js';
 import type { StorageRepository } from '../repositories/storage.repository.js';
 import { DecryptionError, type EncryptionService } from './encryption.service.js';
 
@@ -81,6 +89,34 @@ function archivedError(): AppError {
   ]);
 }
 
+/** Error for a status change that the driver may not make himself (the office decides). */
+function statusChangeNotAllowedError(): AppError {
+  return new AppError(
+    403,
+    'STATUS_CHANGE_NOT_ALLOWED',
+    'This status change is made by the office',
+    [{ path: 'status', message: 'Tę zmianę statusu wykonuje biuro' }],
+  );
+}
+
+/**
+ * Converts a driver account with its profile to the DTO shown to the office.
+ *
+ * @param driver - Account with the contact data of the profile (profile may be missing).
+ * @returns The driver DTO; missing profile fields are `null`.
+ */
+export function toDriverDto(driver: DriverWithProfile): DriverDto {
+  return {
+    id: driver.id,
+    username: driver.username,
+    firstName: driver.profile?.firstName ?? null,
+    lastName: driver.profile?.lastName ?? null,
+    phone: driver.profile?.phone ?? null,
+    licenseNumber: driver.profile?.licenseNumber ?? null,
+    companyName: driver.profile?.companyName ?? null,
+  };
+}
+
 /**
  * Converts a document row to the list DTO.
  *
@@ -124,16 +160,30 @@ export function toDetails(document: DocumentWithDetails): DocumentDetailsDto {
       field: entry.field,
       oldValue: entry.oldValue,
       newValue: entry.newValue,
+      comment: entry.comment,
+      changedBy: { username: entry.changedBy.username, role: entry.changedBy.role },
       createdAt: entry.createdAt.toISOString(),
     })),
   };
 }
 
 /**
+ * Converts a document row with details and driver to the office details DTO.
+ *
+ * @param document - Row with versions, history and the owning driver.
+ * @returns The details DTO with `owner`.
+ */
+function toOfficeDetails(document: DocumentWithDetailsAndOwner): OfficeDocumentDetailsDto {
+  return { ...toDetails(document), owner: toDriverDto(document.owner) };
+}
+
+/**
  * Document logic: upload with envelope encryption, versioning, status rules,
- * change history, soft deletion and integrity-checked download. Every operation is
- * scoped to the requesting user; someone else's document behaves as if it did not
- * exist (404), so its existence is not revealed.
+ * change history, soft deletion and integrity-checked download. The driver
+ * operations are scoped to the requesting user; a document of someone else behaves
+ * as if it did not exist (404), so its existence is not revealed. The office
+ * operations (`listForOffice`, `getForOffice`, `getFileForOffice`, `review`) see the
+ * documents of every driver but never deleted ones, and only read or review them.
  */
 export class DocumentService {
   /**
@@ -243,8 +293,9 @@ export class DocumentService {
    * @returns The document with details after the change.
    * @throws {NotFoundError} If the document is missing, deleted or not owned.
    * @throws {AppError} 409 `DOCUMENT_ARCHIVED` for an archived document;
-   *   409 `INVALID_STATUS_TRANSITION` if the status change is not allowed
-   *   (nothing is changed in that case, not even the other fields).
+   *   403 `STATUS_CHANGE_NOT_ALLOWED` for a transition that only the office makes
+   *   (accept, reject); 409 `INVALID_STATUS_TRANSITION` if the status change does not
+   *   exist at all (nothing is changed in these cases, not even the other fields).
    */
   async update(
     ownerId: string,
@@ -257,8 +308,10 @@ export class DocumentService {
     const changes: DocumentChanges = {};
     const entries: HistoryEntry[] = [];
     if (data.status !== undefined && data.status !== document.status) {
-      if (!canTransition(document.status, data.status)) {
-        throw this.transitionError(document.status, data.status);
+      if (!canChangeStatus('DRIVER', document.status, data.status)) {
+        throw canTransition(document.status, data.status)
+          ? statusChangeNotAllowedError()
+          : this.transitionError(document.status, data.status);
       }
       changes.status = data.status;
       entries.push({
@@ -314,8 +367,100 @@ export class DocumentService {
     if (!/^[1-9]\d{0,8}$/.test(versionParam)) throw new NotFoundError('Version not found');
     const found = await this.documents.findOwnedVersion(documentId, ownerId, Number(versionParam));
     if (!found) throw new NotFoundError('Version not found');
-    const { version, document } = found;
+    return this.readFile(found.version, found.document);
+  }
 
+  // ----- Office view -----
+
+  /**
+   * Lists the documents of all drivers for the office.
+   *
+   * @param query - Validated filters (including an optional driver) and paging.
+   * @returns One page of summaries with their drivers plus paging information.
+   */
+  async listForOffice(query: OfficeListQuery): Promise<OfficeDocumentListResponse> {
+    const { items, total } = await this.documents.listAll(query);
+    return {
+      items: items.map((item) => ({ ...toSummary(item), owner: toDriverDto(item.owner) })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.ceil(total / query.pageSize),
+    };
+  }
+
+  /**
+   * Returns the details of the document of any driver, with the driver.
+   *
+   * @param documentId - Document id.
+   * @returns The details DTO with the owner.
+   * @throws {NotFoundError} If the document is missing or deleted.
+   */
+  async getForOffice(documentId: string): Promise<OfficeDocumentDetailsDto> {
+    const document = await this.documents.findActiveWithOwner(documentId);
+    if (!document) throw new NotFoundError('Document not found');
+    return toOfficeDetails(document);
+  }
+
+  /**
+   * Reads, decrypts and verifies one version file of the document of any driver.
+   *
+   * @param documentId - Document id.
+   * @param versionParam - Version number from the URL (validated here).
+   * @returns The original file (see {@link getFile}).
+   * @throws {NotFoundError} If the document or version does not exist (or is deleted).
+   * @throws {AppError} 500 `FILE_INTEGRITY_ERROR` as {@link getFile}.
+   */
+  async getFileForOffice(documentId: string, versionParam: string): Promise<DownloadedFile> {
+    if (!/^[1-9]\d{0,8}$/.test(versionParam)) throw new NotFoundError('Version not found');
+    const found = await this.documents.findActiveVersion(documentId, Number(versionParam));
+    if (!found) throw new NotFoundError('Version not found');
+    return this.readFile(found.version, found.document);
+  }
+
+  /**
+   * Records the decision of the office about a submitted document (accept, or reject
+   * with a reason). Only one of two simultaneous decisions succeeds.
+   *
+   * @param reviewerId - Office user deciding.
+   * @param documentId - Document id.
+   * @param data - Validated decision and comment (required for a rejection).
+   * @returns The document with details and driver after the decision.
+   * @throws {NotFoundError} If the document is missing or deleted.
+   * @throws {AppError} 409 `DOCUMENT_ARCHIVED` for an archived document; 409
+   *   `INVALID_STATUS_TRANSITION` if it is not SUBMITTED (anymore); nothing changes then.
+   * Side effects: updates the status and adds a STATUS_CHANGED history entry with the
+   * comment, in one transaction.
+   */
+  async review(
+    reviewerId: string,
+    documentId: string,
+    data: ReviewDocumentData,
+  ): Promise<OfficeDocumentDetailsDto> {
+    const reviewed = await this.documents.review(
+      documentId,
+      reviewerId,
+      data.decision,
+      data.comment,
+    );
+    if (reviewed) return toOfficeDetails(reviewed);
+    const document = await this.documents.findActiveWithOwner(documentId);
+    if (!document) throw new NotFoundError('Document not found');
+    if (document.status === 'ARCHIVED') throw archivedError();
+    throw this.transitionError(document.status, data.decision);
+  }
+
+  /**
+   * Reads the ciphertext of a version from MinIO, decrypts it and checks it against
+   * the recorded SHA-256; builds the download file names from the document title.
+   *
+   * @param version - Version row (storage key, encryption parameters, checksum).
+   * @param document - Its document (title for the file name).
+   * @returns The original file with its type, checksum and download names.
+   * @throws {AppError} 500 `FILE_INTEGRITY_ERROR` if the file fails GCM authentication
+   *   or its checksum differs (tampering or corruption); nothing is returned then.
+   */
+  private async readFile(version: DocumentVersion, document: Document): Promise<DownloadedFile> {
     const ciphertext = await this.storage.get(version.storageKey);
     let content: Buffer;
     try {

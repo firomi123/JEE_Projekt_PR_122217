@@ -218,8 +218,69 @@ o braku połączenia.
 \paragraph{Weryfikacja.} Plan zakładał sprawdzenie aplikacji narzędziem
 Lighthouse. Kategoria ,,PWA'' została jednak usunięta z Lighthouse w wersji~12,
 dlatego wymagania instalowalności sprawdzają testy Playwright
-(podrozdział~\ref{sec:testy}). Instalację na telefonie należy sprawdzić
-ręcznie (README, sekcja o teście na telefonie).
+(podrozdział~\ref{sec:testy}). Instalację sprawdzono też ręcznie na
+prawdziwym telefonie z Androidem (rysunek~\ref{fig:telefon}).
+
+\subsubsection{Panel biura}
+\label{sec:panel-biura}
+
+Panel biura (Etap~15) jest częścią tej samej aplikacji, dostępną pod adresem
+\texttt{/biuro} dla kont z rolą biura (podrozdział~\ref{sec:role}). Jest
+przeznaczony głównie do pracy w przeglądarce na komputerze: szerszy układ,
+tabela dokumentów i dwie kolumny na ekranie dokumentu. Na telefonie tabela
+zamienia się w karty, a nawigacja w dolny pasek, tak jak w części kierowcy.
+
+\paragraph{Lista.} Widok ,,Do sprawdzenia'' pokazuje dokumenty przesłane przez
+wszystkich kierowców, a widok ,,Wszystkie dokumenty'' dodatkowo filtr statusu.
+Kolumny to kierowca (imię i nazwisko z profilu, login i firma), tytuł, typ,
+numer, status, numer wersji i data zmiany. Filtry kierowcy, typu i tekstu są
+zapisane w adresie strony, tak jak na liście kierowcy.
+
+\paragraph{Dokument i decyzja.} Ekran dokumentu pokazuje duży podgląd bieżącej
+wersji, a obok dane kontaktowe kierowcy i formularz decyzji: pole ,,Komentarz
+dla kierowcy'' oraz przyciski ,,Akceptuj'' i ,,Odrzuć''. Formularz sprawdza
+wspólnym schematem, czy odrzucenie ma powód, zanim wyśle żądanie. Poniżej
+znajdują się wersje pliku do pobrania i historia z komentarzami biura.
+Biuro nie ma przycisków edycji ani usuwania.
+
+\paragraph{Strona kierowcy.} Kierowca nie ma już przycisku akceptacji. Po
+przesłaniu dokumentu widzi komunikat, że dokument czeka na decyzję biura.
+Odrzucony dokument ma czerwoną ramkę z powodem podanym przez biuro, a historia
+pokazuje, kto z biura podjął decyzję. Kierowca może dodać nową wersję
+(np. nowe zdjęcie) i przesłać dokument ponownie.
+
+\paragraph{Rozdzielenie ról.} Strażnik tras \texttt{RequireRole} kieruje każdą
+rolę do jej części aplikacji. Biuro po zalogowaniu trafia na \texttt{/biuro},
+a kierowca próbujący otworzyć \texttt{/biuro} wraca na swoją listę. Zapisana
+sesja sprzed wprowadzenia ról (bez poprawnej roli) jest odrzucana, więc
+użytkownik loguje się ponownie i dostaje aktualne dane konta.
+
+\paragraph{Aktualność danych.} Biblioteka TanStack Query domyślnie uznawała
+pobrane dane za aktualne przez 30~sekund. Dopóki dokument zmieniał tylko jego
+właściciel, to wystarczało, bo jego własne zmiany odświeżały pamięć
+podręczną. Teraz zmieniają go dwie strony, więc listy i szczegóły dokumentów
+są pobierane na nowo przy każdym wejściu na ekran. Błąd, który wynikał
+z poprzedniego ustawienia, wykrył test E2E (podrozdział~\ref{sec:testy}).
+
+Rysunek~\ref{fig:biuro} pokazuje panel biura w przeglądarce na komputerze
+(okno 1440$\times$900 punktów, zrzuty wykonane skryptem
+\path{scripts/report-screenshots.mjs}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\textwidth]{zrzuty/biuro-lista.png}
+
+\small (a) lista dokumentów do sprawdzenia
+
+\vspace{0.4cm}
+\includegraphics[width=0.95\textwidth]{zrzuty/biuro-dokument.png}
+
+\small (b) dokument z danymi kierowcy i formularzem decyzji
+\caption{Panel biura w przeglądarce na komputerze}
+\label{fig:biuro}
+\zrodlo{opracowanie własne (zrzuty ekranu aplikacji)}
+\end{figure}
+
 
 \subsubsection{Wygląd aplikacji}
 

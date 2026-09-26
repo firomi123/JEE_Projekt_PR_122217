@@ -1,5 +1,6 @@
 @startuml statusy
-' Diagram stanów dokumentu (STATUS_TRANSITIONS w shared/src/documents.ts)
+' Diagram stanów dokumentu (STATUS_TRANSITIONS i ROLE_STATUS_TRANSITIONS
+' w shared/src/documents.ts): [K] – zmianę wykonuje kierowca, [B] – biuro.
 skinparam dpi 200
 skinparam shadowing false
 hide empty description
@@ -10,16 +11,16 @@ state "Zaakceptowany\nACCEPTED" as ACCEPTED
 state "Odrzucony\nREJECTED" as REJECTED
 state "Zarchiwizowany\nARCHIVED" as ARCHIVED
 
-[*] --> DRAFT : dodanie dokumentu
-DRAFT --> SUBMITTED : przesłanie do biura
-SUBMITTED --> DRAFT : wycofanie
-SUBMITTED --> ACCEPTED : akceptacja
-SUBMITTED --> REJECTED : odrzucenie
-REJECTED --> DRAFT : poprawa
-REJECTED --> SUBMITTED : ponowne przesłanie
-DRAFT --> ARCHIVED
-REJECTED --> ARCHIVED
-ACCEPTED --> ARCHIVED
+[*] --> DRAFT : [K] dodanie dokumentu
+DRAFT --> SUBMITTED : [K] przesłanie do biura
+SUBMITTED --> DRAFT : [K] wycofanie
+SUBMITTED --> ACCEPTED : [B] akceptacja
+SUBMITTED --> REJECTED : [B] odrzucenie\n(z powodem)
+REJECTED --> DRAFT : [K] poprawa
+REJECTED --> SUBMITTED : [K] ponowne przesłanie
+DRAFT --> ARCHIVED : [K]
+REJECTED --> ARCHIVED : [K]
+ACCEPTED --> ARCHIVED : [K]
 ARCHIVED --> [*]
 note right of ARCHIVED : tylko do odczytu
 @enduml

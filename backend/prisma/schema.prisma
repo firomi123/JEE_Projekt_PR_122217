@@ -14,6 +14,13 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Account role: drivers register themselves; office accounts come from the
+/// configuration (OFFICE_USERNAME / OFFICE_PASSWORD, Stage 15).
+enum UserRole {
+  DRIVER
+  OFFICE
+}
+
 /// Application account. The driver profile (Stage 5) and documents (Stage 6)
 /// reference it; passwords are stored only as argon2 hashes (Stage 4).
 model User {
@@ -21,6 +28,7 @@ model User {
   username     String   @unique @db.VarChar(30)
   email        String   @unique @db.VarChar(254)
   passwordHash String   @map("password_hash")
+  role         UserRole @default(DRIVER)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -132,6 +140,8 @@ model DocumentHistory {
   field       String?       @db.VarChar(30)
   oldValue    String?       @map("old_value") @db.VarChar(500)
   newValue    String?       @map("new_value") @db.VarChar(500)
+  /// Office's comment on a review decision (required when rejecting).
+  comment     String?       @db.VarChar(500)
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([documentId, createdAt])

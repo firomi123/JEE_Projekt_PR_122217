@@ -25,7 +25,7 @@ describe('POST /api/documents (upload)', () => {
   const { app, prisma } = ctx;
 
   it('creates a DRAFT document with version 1 and a CREATED history entry', async () => {
-    const { authHeader } = await loginAs(app, prisma);
+    const { authHeader, user } = await loginAs(app, prisma);
     const file = pdfFile();
 
     const response = await uploadDocument(app, authHeader, {
@@ -63,6 +63,8 @@ describe('POST /api/documents (upload)', () => {
           field: null,
           oldValue: null,
           newValue: null,
+          comment: null,
+          changedBy: { username: user.username, role: 'DRIVER' },
           createdAt: expect.any(String),
         },
       ],
@@ -108,7 +110,7 @@ describe('POST /api/documents (upload)', () => {
     expect(row.iv).toHaveLength(12);
     expect(row.authTag).toHaveLength(16);
     expect(row.encryptedDataKey).toHaveLength(60);
-    expect(JSON.stringify(document)).not.toMatch(/storageKey|iv|authTag|encryptedDataKey/);
+    expect(JSON.stringify(document)).not.toMatch(/"(storageKey|iv|authTag|encryptedDataKey)":/);
   });
 
   it('detects the format from the content, not from the file name or Content-Type', async () => {
@@ -612,6 +614,46 @@ describe('PATCH /api/documents/:id', () => {
     });
     const row = await prisma.document.findUniqueOrThrow({ where: { id: document.id } });
     expect(row).toMatchObject({ status: 'DRAFT', title: document.title });
+  });
+
+  it.each(['ACCEPTED', 'REJECTED'])(
+    'does not let the driver decide about a submitted document himself (%s → 403)',
+    async (decision) => {
+      const { authHeader } = await loginAs(app, prisma);
+      const document = await createDocument(app, authHeader);
+      await request(app)
+        .patch(`/api/documents/${document.id}`)
+        .set('Authorization', authHeader)
+        .send({ status: 'SUBMITTED' });
+
+      const response = await request(app)
+        .patch(`/api/documents/${document.id}`)
+        .set('Authorization', authHeader)
+        .send({ status: decision });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toMatchObject({
+        code: 'STATUS_CHANGE_NOT_ALLOWED',
+        details: [{ path: 'status', message: 'Tę zmianę statusu wykonuje biuro' }],
+      });
+      const row = await prisma.document.findUniqueOrThrow({ where: { id: document.id } });
+      expect(row.status).toBe('SUBMITTED');
+    },
+  );
+
+  it('records who changed the status in the history', async () => {
+    const { authHeader, user } = await loginAs(app, prisma);
+    const document = await createDocument(app, authHeader);
+
+    const response = await request(app)
+      .patch(`/api/documents/${document.id}`)
+      .set('Authorization', authHeader)
+      .send({ status: 'SUBMITTED' });
+
+    expect(response.body.document.history[0]).toMatchObject({
+      comment: null,
+      changedBy: { username: user.username, role: 'DRIVER' },
+    });
   });
 
   it('does not add history entries when nothing actually changes', async () => {

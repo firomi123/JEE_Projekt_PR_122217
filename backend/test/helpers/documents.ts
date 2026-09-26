@@ -68,6 +68,8 @@ export async function createDocument(
  * @param documentId - Document id.
  * @param versionNo - Version number (or any string, to test invalid values).
  * @param query - Optional query string, e.g. `?download=1`.
+ * @param basePath - Collection the document is read from: `/api/documents` (the
+ *   driver's own) or `/api/office/documents` (office view of every driver's).
  * @returns The response; `response.body` is a Buffer.
  */
 export function downloadFile(
@@ -76,9 +78,10 @@ export function downloadFile(
   documentId: string,
   versionNo: number | string,
   query = '',
+  basePath = '/api/documents',
 ): Promise<Response> {
   return request(app)
-    .get(`/api/documents/${documentId}/versions/${versionNo}/file${query}`)
+    .get(`${basePath}/${documentId}/versions/${versionNo}/file${query}`)
     .set('Authorization', authHeader)
     .buffer(true)
     .parse((res, callback) => {

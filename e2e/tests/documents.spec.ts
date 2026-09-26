@@ -98,6 +98,21 @@ test('filters the list by type and status and searches by text', async ({ page }
   await expect(page.getByText('Brak dokumentów spełniających kryteria.')).toBeVisible();
 });
 
+test('keeps a filter chosen while the search text is still being applied', async ({ page }) => {
+  await createDocumentViaApi(page, { type: 'CMR', title: 'CMR Gdańsk' });
+  await page.reload();
+
+  // The search is applied 300 ms after typing; choosing the status within that
+  // time must not be undone by the delayed search update.
+  await page.getByLabel('Szukaj (tytuł lub numer)').fill('Gdańsk');
+  await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Przesłany' });
+
+  await expect(page).toHaveURL(/q=Gda/);
+  await expect(page).toHaveURL(/status=SUBMITTED/);
+  await expect(page.getByLabel('Status', { exact: true })).toHaveValue('SUBMITTED');
+  await expect(page.getByText('Brak dokumentów spełniających kryteria.')).toBeVisible();
+});
+
 test('adds a new version: two versions and the history entry are shown', async ({ page }) => {
   const id = await createDocumentViaApi(page, { type: 'CMR', title: 'CMR z pieczątką' });
   await page.goto(`/dokumenty/${id}`);
@@ -122,7 +137,10 @@ test('changes the status; the new status is visible in the list', async ({ page 
 
   await expect(page.locator('.page-header .badge')).toHaveText('Przesłany');
   await expect(page.getByTestId('history')).toContainText('Status: Roboczy → Przesłany');
-  await expect(page.getByRole('button', { name: 'Oznacz jako: Zaakceptowany' })).toBeVisible();
+  // Accepting is up to the office: the driver can only withdraw the document.
+  await expect(page.getByText('Dokument czeka na decyzję biura.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Oznacz jako: Roboczy' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Oznacz jako: Zaakceptowany' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Dokumenty' }).click();
   await expect(page.getByRole('link', { name: /Do przesłania/ })).toContainText('Przesłany');
 });

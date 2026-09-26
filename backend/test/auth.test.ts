@@ -49,6 +49,7 @@ describe('POST /api/auth/register', () => {
         id: expect.stringMatching(UUID),
         username: 'jan_kowalski',
         email: 'jan@example.com',
+        role: 'DRIVER',
         createdAt: expect.any(String),
       },
     });
@@ -159,6 +160,7 @@ describe('POST /api/auth/login', () => {
         id: user.id,
         username: 'jan_kowalski',
         email: user.email,
+        role: 'DRIVER',
         createdAt: user.createdAt.toISOString(),
       },
     });
@@ -273,6 +275,7 @@ describe('GET /api/auth/me', () => {
         id: user.id,
         username: 'jan_kowalski',
         email: user.email,
+        role: 'DRIVER',
         createdAt: user.createdAt.toISOString(),
       },
     });

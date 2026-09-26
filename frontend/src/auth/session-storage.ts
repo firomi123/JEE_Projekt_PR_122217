@@ -1,4 +1,4 @@
-import type { UserDto } from '@driver-docs/shared';
+import { USER_ROLES, type UserDto } from '@driver-docs/shared';
 
 /** Key under which the session is kept in `localStorage`. */
 const STORAGE_KEY = 'driver-docs.session';
@@ -13,6 +13,8 @@ export interface StoredSession {
 
 /**
  * Reads the stored session, discarding it when it is malformed or already expired.
+ * A session saved before roles existed (no valid `user.role`) is discarded too, so
+ * the user logs in again and gets the current account data.
  *
  * @param now - Current time in ms (injectable for tests).
  * @returns The session, or `null` if there is no valid one.
@@ -27,6 +29,7 @@ export function readSession(now = Date.now()): StoredSession | null {
       typeof session.token === 'string' &&
       typeof session.expiresAt === 'number' &&
       session.user &&
+      USER_ROLES.includes(session.user.role) &&
       session.expiresAt > now
     ) {
       return session as StoredSession;

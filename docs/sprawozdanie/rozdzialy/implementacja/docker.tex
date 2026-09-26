@@ -136,7 +136,11 @@ podstawie plik \texttt{.env} z losowymi hasłami do bazy, MinIO i Grafany,
 sekretem JWT oraz 256-bitowym kluczem głównym szyfrowania. Zmienne wymagane są
 zapisane w postaci \texttt{\$\{JWT\_SECRET:?komunikat\}}, dzięki czemu
 \texttt{docker compose} odmawia uruchomienia systemu, gdy któregoś sekretu
-brakuje, zamiast uruchomić go z pustym hasłem.
+brakuje, zamiast uruchomić go z pustym hasłem. Zmienne
+\texttt{OFFICE\_USERNAME} i \texttt{OFFICE\_PASSWORD} określają konto biura
+zakładane przy starcie backendu (podrozdział~\ref{sec:role}). Hasło biura
+również generuje \texttt{npm run env:init}. Puste wartości oznaczają system
+bez konta biura.
 
 \subsubsection{Środowisko testowe}
 

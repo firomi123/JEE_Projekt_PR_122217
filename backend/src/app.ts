@@ -5,6 +5,7 @@ import type { Config } from './config/env.js';
 import { AuthController } from './controllers/auth.controller.js';
 import { DocumentController } from './controllers/document.controller.js';
 import { HealthController } from './controllers/health.controller.js';
+import { OfficeController } from './controllers/office.controller.js';
 import { ProfileController } from './controllers/profile.controller.js';
 import { createMetrics } from './lib/metrics.js';
 import { onQuery, type PrismaClient } from './lib/prisma.js';
@@ -14,6 +15,7 @@ import { notFound } from './middleware/not-found.js';
 import { loginRateLimit } from './middleware/rate-limit.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { requireAuth } from './middleware/require-auth.js';
+import { requireRole } from './middleware/require-role.js';
 import { DocumentRepository } from './repositories/document.repository.js';
 import { HealthRepository } from './repositories/health.repository.js';
 import { ProfileRepository } from './repositories/profile.repository.js';
@@ -23,6 +25,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createDocsRouter } from './routes/docs.js';
 import { createDocumentsRouter } from './routes/documents.js';
 import { createHealthRouter } from './routes/health.js';
+import { createOfficeRouter } from './routes/office.js';
 import { createProfileRouter } from './routes/profile.js';
 import { AuthService } from './services/auth.service.js';
 import { DocumentService } from './services/document.service.js';
@@ -85,6 +88,14 @@ export function createApp(deps: AppDependencies): Express {
   const tokens = new TokenService(config.jwt);
   const authenticate = requireAuth(tokens);
   const users = new UserRepository(prisma);
+  // Driver and office endpoints are separated by role (Stage 15).
+  const driverOnly = [authenticate, requireRole(users, 'DRIVER')];
+  const officeOnly = [authenticate, requireRole(users, 'OFFICE')];
+  const documentService = new DocumentService(
+    new DocumentRepository(prisma),
+    new StorageRepository(s3, config.s3.bucket),
+    new EncryptionService(config.masterEncryptionKey),
+  );
 
   const healthRouter = createHealthRouter(
     new HealthController(
@@ -108,23 +119,18 @@ export function createApp(deps: AppDependencies): Express {
     '/api/profile',
     createProfileRouter(
       new ProfileController(new ProfileService(new ProfileRepository(prisma))),
-      authenticate,
+      driverOnly,
     ),
   );
 
   app.use(
     '/api/documents',
-    createDocumentsRouter(
-      new DocumentController(
-        new DocumentService(
-          new DocumentRepository(prisma),
-          new StorageRepository(s3, config.s3.bucket),
-          new EncryptionService(config.masterEncryptionKey),
-        ),
-        metrics,
-      ),
-      authenticate,
-    ),
+    createDocumentsRouter(new DocumentController(documentService, metrics), driverOnly),
+  );
+
+  app.use(
+    '/api/office',
+    createOfficeRouter(new OfficeController(documentService, users), officeOnly),
   );
 
   app.use('/api/docs', createDocsRouter());

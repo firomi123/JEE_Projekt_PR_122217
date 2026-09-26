@@ -15,4 +15,16 @@ export const e2eBackendEnv: Record<string, string> = {
   PORT: String(E2E_BACKEND_PORT),
   LOG_LEVEL: 'warn',
   LOGIN_RATE_LIMIT_MAX: '1000',
+  OFFICE_USERNAME: 'biuro_e2e',
+  OFFICE_PASSWORD: 'Biuro-E2e-Haslo1!',
+};
+
+/**
+ * Office account used by the office scenarios: the one the E2E backend creates at
+ * startup, or – against another deployment (E2E_BASE_URL) – the one given in
+ * E2E_OFFICE_USERNAME / E2E_OFFICE_PASSWORD.
+ */
+export const e2eOffice = {
+  username: process.env.E2E_OFFICE_USERNAME ?? e2eBackendEnv.OFFICE_USERNAME!,
+  password: process.env.E2E_OFFICE_PASSWORD ?? e2eBackendEnv.OFFICE_PASSWORD!,
 };
