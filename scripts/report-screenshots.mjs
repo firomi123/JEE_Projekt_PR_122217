@@ -8,7 +8,9 @@
  * screens (login, list, details, camera, photo editor, profile)
  * in an emulated phone and the office panel (list, document) in a desktop browser.
  *
- * Usage: node scripts/report-screenshots.mjs [baseUrl]   (default http://localhost:8090)
+ * Usage: npm run docs:screenshots – runs this script against a disposable copy of the
+ * Docker stack (scripts/e2e-docker.mjs), because it creates a demo account and
+ * documents; it refuses to run without E2E_DISPOSABLE_TARGET=1 set by that wrapper.
  * Requires the Playwright browser (npm run install:browsers -w e2e) and
  * OFFICE_USERNAME / OFFICE_PASSWORD in the root `.env`.
  */
@@ -18,7 +20,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, devices } from '@playwright/test';
 
-const baseURL = process.argv[2] ?? 'http://localhost:8090';
+if (process.env.E2E_DISPOSABLE_TARGET !== '1' || !process.env.E2E_BASE_URL) {
+  console.error('Run this through `npm run docs:screenshots` (a disposable copy of the stack).');
+  process.exit(1);
+}
+const baseURL = process.env.E2E_BASE_URL;
 const outDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '..',

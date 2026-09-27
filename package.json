@@ -33,7 +33,8 @@
     "monitoring:check": "bash monitoring/chaos-test.sh config",
     "chaos": "bash monitoring/chaos-test.sh",
     "docs:code": "typedoc",
-    "docs:screenshots": "node scripts/report-screenshots.mjs"
+    "docs:screenshots": "node scripts/e2e-docker.mjs -- node scripts/report-screenshots.mjs",
+    "test:e2e:docker": "node scripts/e2e-docker.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

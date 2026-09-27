@@ -5,10 +5,19 @@ import { E2E_BACKEND_PORT, E2E_FRONTEND_PORT, e2eBackendEnv } from './env';
 /**
  * End-to-end UI tests. By default Playwright starts its own backend (port 3101, on
  * the test database from docker-compose.test.yml) and a production build of the
- * frontend served by `vite preview` (port 5174, forwarding /api to that backend). Set E2E_BASE_URL to run against an already
- * running deployment instead (e.g. the Docker stack at http://localhost:8090).
+ * frontend served by `vite preview` (port 5174, forwarding /api to that backend).
+ * To test the Docker images, run `npm run test:e2e:docker`: it starts a disposable copy
+ * of the stack and sets E2E_BASE_URL to it. The tests create accounts and documents,
+ * so an external E2E_BASE_URL is accepted only together with E2E_DISPOSABLE_TARGET=1
+ * (set by that script) – never run them against the real stack's data.
  */
 const externalBaseUrl = process.env.E2E_BASE_URL;
+if (externalBaseUrl && process.env.E2E_DISPOSABLE_TARGET !== '1') {
+  throw new Error(
+    `Refusing to run E2E tests against ${externalBaseUrl}: they create accounts and documents. ` +
+      'Use `npm run test:e2e:docker` (a disposable copy of the stack).',
+  );
+}
 const baseURL = externalBaseUrl ?? `http://localhost:${E2E_FRONTEND_PORT}`;
 
 export default defineConfig({

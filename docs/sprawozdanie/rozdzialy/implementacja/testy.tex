@@ -430,6 +430,17 @@ pełnym stosie Docker za serwerem nginx
 konfiguracji, która jest wdrażana. Po Etapie~15 zestaw liczy 36 scenariuszy
 i przechodzi zarówno lokalnie, jak i na stosie Docker.
 
+Testy tworzą konta i dokumenty, więc ich uruchamianie na działającym stosie
+zapisywało dane testowe w jego bazie i magazynie plików, obok prawdziwych
+danych. Po zauważeniu tego problemu dane testowe usunięto, a testy obrazów
+Docker uruchamia teraz skrypt \path{scripts/e2e-docker.mjs}
+(\texttt{npm run test:e2e:docker}). Tworzy on jednorazową kopię stosu z tych
+samych obrazów: osobny projekt Docker Compose z pustymi wolumenami i innymi
+portami, tylko z usługami aplikacji. Na tej kopii uruchamia testy, a potem
+usuwa ją razem z danymi. Konfiguracja Playwright odmawia pracy z zewnętrznym
+adresem, jeśli nie uruchomił jej ten skrypt, więc pomyłka nie zapisze już
+danych testowych w prawdziwej bazie. Tak samo działa skrypt zrzutów ekranu.
+
 Pełny scenariusz wykrył kolejny błąd. Po wylogowaniu przyciskiem i ponownym
 zalogowaniu aplikacja przenosiła użytkownika na stronę, z której się
 wylogował, zamiast na listę dokumentów. Strażnik tras zapamiętywał tę stronę

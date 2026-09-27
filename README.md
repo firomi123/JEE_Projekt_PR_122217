@@ -89,7 +89,7 @@ npm run test:infra:down
 - Backend: 189 testów (głównie funkcjonalne – żądania HTTP do API na prawdziwej bazie i MinIO), pakiet `shared`: 109, frontend: 62 testy jednostkowe, Playwright: 36 scenariuszy (w tym pełna ścieżka kierowcy od rejestracji do wylogowania i obieg biuro ↔ kierowca w dwóch przeglądarkach).
 - Testów backendu nie uruchamiaj w trakcie testów Playwright – oba korzystają z tej samej bazy testowej, a testy backendu ją czyszczą (także konto biura testów E2E).
 - Pokrycie: `npm run test:coverage` (backend ok. 95 % instrukcji) i `npm run test:e2e:coverage` (frontend przez testy w przeglądarce ok. 94 %).
-- Testy Playwright na stosie Docker zamiast lokalnego backendu: `E2E_BASE_URL=http://localhost:8090 npm run test:e2e`.
+- Testy Playwright na obrazach Docker: `npm run test:e2e:docker` – uruchamia **jednorazową kopię** stosu (osobny projekt Compose `driver-docs-e2e`, puste wolumeny, frontend na :8091), wykonuje testy i usuwa kopię razem z danymi. Testy tworzą konta i dokumenty, dlatego nie uruchamiaj ich na stosie z prawdziwymi danymi (:8090) – Playwright odmówi pracy z zewnętrznym adresem bez tego skryptu.
 - Monitoring: `npm run monitoring:check` (składnia reguł i konfiguracji), `npm run chaos` (awaria, zawieszenie procesu i zatrzymanie bazy na działającym stosie – sprawdza restarty i alerty).
 - CI: `.github/workflows/ci.yml` (lint, typy, build, testy z pokryciem, E2E, stos Docker).
 
@@ -128,5 +128,5 @@ Sprawdzono na Samsung Galaxy A26 (Android 16, Chrome). Scenariusz ręczny: rejes
 | `npm run monitoring:check`                          | Sprawdza reguły alertów i konfigurację (`promtool`, `amtool`)                                                                                |
 | `npm run chaos`                                     | Test watchdogów na działającym stosie: awaria procesu, zamrożenie, zatrzymanie bazy (5–8 min, wymaga bash)                                   |
 | `npm run docs:code`                                 | Dokumentacja kodu TypeDoc (z opisów TSDoc) w `docs/kod/index.html`                                                                           |
-| `npm run docs:screenshots`                          | Zrzuty ekranu do sprawozdania (emulacja Pixel 7) z działającego stosu Docker                                                                 |
+| `npm run docs:screenshots`                          | Zrzuty ekranu do sprawozdania na jednorazowej kopii stosu (kierowca: emulacja Pixel 7, biuro: przeglądarka 1440×900)                                                                 |
 | `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`); `-- --clean` buduje od zera |
