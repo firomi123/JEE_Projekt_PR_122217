@@ -9,9 +9,9 @@ uruchamiane wspólnie przez Docker Compose.
 Rysunek~\ref{fig:kontenery} przedstawia kontenery systemu w notacji modelu C4.
 Użytkownik łączy się wyłącznie z kontenerem \texttt{frontend}:
 serwer nginx udostępnia zbudowaną aplikację React, a żądania na ścieżki
-\texttt{/api/*} przekazuje do kontenera \texttt{backend}. Przeglądarka rozmawia
-więc z jednym adresem (ta sama domena dla aplikacji i API), dzięki czemu nie
-trzeba konfigurować mechanizmu CORS. Backend zapisuje dane w bazie PostgreSQL
+\texttt{/api/*} przekazuje do kontenera \texttt{backend}. Przeglądarka łączy
+się z jednym adresem (ta sama domena dla aplikacji i API) i nie trzeba
+konfigurować mechanizmu CORS. Backend zapisuje dane w bazie PostgreSQL
 i zaszyfrowane pliki w magazynie MinIO, zgodnym z interfejsem Amazon S3.
 Prometheus okresowo pobiera metryki backendu, a Grafana prezentuje je na
 dashboardach.
@@ -59,7 +59,7 @@ Walidacja & Zod & Te same reguły na froncie i w API \\
 \hline
 Frontend & React 19, Vite & Szybkie środowisko deweloperskie, łatwa konfiguracja PWA \\
 \hline
-Uwierzytelnianie & JWT, argon2 & Tokeny z wymagań; aktualny standard skracania haseł \\
+Uwierzytelnianie & JWT, argon2 & Tokeny z wymagań; zalecana funkcja skrótu haseł \\
 \hline
 Szyfrowanie & AES-256-GCM (\texttt{node:crypto}) & Szyfrowanie kopertowe plików przed zapisem \\
 \hline

@@ -3,273 +3,39 @@
 
 \subsubsection{Strategia}
 
-Podstawą są \textbf{testy funkcjonalne}: sprawdzają zachowanie aplikacji przez
-jej publiczny interfejs, czyli żądania HTTP do API działającego na prawdziwej
-bazie PostgreSQL i prawdziwym magazynie MinIO, a później także scenariusze
-w przeglądarce. Weryfikowane jest to, co widzi klient: kod odpowiedzi, treść
-i nagłówki. \textbf{Testy jednostkowe} uzupełniają je tam, gdzie izolowana
-logika ma wiele przypadków brzegowych, np. walidacja konfiguracji czy
-mapowanie błędów na odpowiedzi. Błędy naprawiane są zawsze w tej samej
-kolejności: najpierw test, który odtwarza błąd i nie przechodzi, dopiero
-potem poprawka kodu.
+Podstawą są testy funkcjonalne. Sprawdzają one aplikację tak, jak używa jej
+klient: żądania HTTP trafiają do działającego API połączonego z prawdziwą bazą
+PostgreSQL i prawdziwym magazynem MinIO, a scenariusze interfejsu wykonuje
+przeglądarka. Test ocenia tylko to, co widać z zewnątrz, czyli kod odpowiedzi,
+jej treść i nagłówki albo zawartość ekranu. Testy jednostkowe uzupełniają je
+tam, gdzie pojedyncza funkcja ma wiele przypadków brzegowych, na przykład
+w walidacji danych, obliczeniach kompresji albo regułach zmiany statusu.
 
-\subsubsection{Narzędzia i środowisko}
+Błędy naprawiano zawsze w tej samej kolejności. Najpierw ustalano przyczynę,
+potem powstawał test odtwarzający błąd, który przed poprawką nie przechodził,
+a dopiero na końcu zmieniano kod. Test zostaje w zestawie i pilnuje, żeby błąd
+nie wrócił. Podobnie powstawała większość nowych funkcji: testy funkcjonalne
+pisano przed kodem i sprawdzano, że kończą się błędem z oczekiwanego powodu,
+np. z powodu braku endpointu.
 
-Testy backendu uruchamia Vitest, a żądania HTTP wysyła do
-aplikacji biblioteka Supertest, bez otwierania portu sieciowego. Baza danych
-i MinIO dla testów pochodzą z pliku \texttt{docker-compose.test.yml}
-(podrozdział~\ref{sec:docker}) i uruchamia je polecenie
-\texttt{npm run test:infra:up}. Przed testami skrypt przygotowujący
-(\emph{global setup}) sprawdza, czy baza jest dostępna, i podpowiada, jak ją
-uruchomić, jeśli nie jest. Następnie stosuje wszystkie migracje
-(\texttt{prisma migrate deploy}). Przed każdym testem wszystkie tabele są
-opróżniane jednym poleceniem \texttt{TRUNCATE}, więc testy nie zależą od
-siebie nawzajem. Pliki testów wykonują się kolejno, bo korzystają ze wspólnej
-bazy.
+\subsubsection{Środowisko testowe}
 
-Pomocnicze funkcje testów budują aplikację dokładnie tak jak
-\texttt{server.ts}, ale pozwalają nadpisać wybrane zmienne środowiskowe.
-Dzięki temu da się sprawdzić zachowanie przy awarii zależności: wystarczy
-wskazać adres bazy danych lub MinIO na zamknięty port.
+Testy backendu uruchamia Vitest, a żądania HTTP wysyła biblioteka Supertest,
+bez otwierania portu sieciowego. Baza danych i MinIO do testów działają
+w osobnych kontenerach z pliku \texttt{docker-compose.test.yml}, z danymi
+w pamięci. Przed testami stosowane są wszystkie migracje, a przed każdym testem
+tabele są czyszczone jednym poleceniem \texttt{TRUNCATE}, dzięki czemu testy
+nie wpływają na siebie nawzajem. Funkcje pomocnicze budują aplikację tak samo
+jak \texttt{server.ts}, ale pozwalają podmienić wybrane ustawienia. W ten sposób
+sprawdzane są też awarie zależności: wystarczy wskazać adres bazy albo MinIO,
+pod którym nic nie działa.
 
-\subsubsection{Zakres testów po Etapie 3}
-
-\begin{itemize}
-  \item \texttt{/health} i \texttt{/api/health} zwracają 200;
-  \item \texttt{/health/ready} zwraca 200, gdy działają baza i MinIO, oraz 503
-        ze wskazaniem niedziałającej zależności, gdy baza jest niedostępna,
-        MinIO jest niedostępne albo nie istnieje bucket; odpowiedź nie ujawnia
-        szczegółów błędu;
-  \item nieznana ścieżka zwraca 404 w jednolitym formacie; niepoprawny JSON
-        zwraca 400, a zbyt duże żądanie 413;
-  \item identyfikator żądania jest generowany albo przejmowany z nagłówka
-        \texttt{X-Request-Id}, jeśli ma poprawny format;
-  \item serwer uruchomiony z brakującą lub błędną konfiguracją kończy się
-        kodem~1 i wymienia wszystkie błędne zmienne, nie wypisując sekretów
-        (test uruchamia prawdziwy proces serwera);
-  \item testy jednostkowe walidacji konfiguracji (m.in. 10 rodzajów błędnych
-        wartości) i middleware'u obsługi błędów (w tym ukrywanie treści
-        nieoczekiwanych wyjątków).
-\end{itemize}
-
-Po Etapie 3 backend miał 40 testów. Żeby sprawdzić, czy testy faktycznie
-wykrywają błędy, celowo wprowadzono do kodu dwie usterki: readiness zawsze
-zwracał ,,gotowy'', a błąd 500 ujawniał treść wyjątku. Cztery testy od razu
-przestały przechodzić.
-
-\subsubsection{Testy rejestracji i logowania}
-
-Etap 4 dodał 28 testów funkcjonalnych API oraz 37 testów jednostkowych
-schematów walidacji we wspólnym pakiecie:
-
-\begin{itemize}
-  \item rejestracja: poprawne konto (201, odpowiedź bez hasła, w bazie tylko
-        skrót argon2id), zamiana loginu i e-maila na małe litery, zajęty login
-        lub e-mail niezależnie od wielkości liter (409 z właściwym polem
-        w \texttt{details}), niepoprawne i puste dane (400 ze szczegółami
-        wszystkich pól, bez zapisu do bazy);
-  \item logowanie: token z \texttt{sub} równym identyfikatorowi użytkownika
-        i czasem życia 1~godziny, zły login i złe hasło dają identyczną
-        odpowiedź 401, brak pól daje 400;
-  \item limit prób: po przekroczeniu limitu nieudanych prób kolejna próba
-        (nawet z poprawnym hasłem) dostaje 429 z \texttt{Retry-After};
-        udane logowania nie są wliczane do limitu;
-  \item \texttt{/api/auth/me}: 200 z ważnym tokenem; 401 bez tokenu, dla innego
-        schematu niż Bearer, dla tokenu uszkodzonego, podpisanego innym
-        kluczem, wygasłego (kod \texttt{TOKEN\_EXPIRED}), z obcym wystawcą lub
-        odbiorcą, niepodpisanego (\texttt{alg: none}) oraz gdy konto usunięto;
-  \item dokumentacja: specyfikacja OpenAPI zawiera wszystkie endpointy, a reguły
-        rejestracji zgadzają się ze schematem Zod;
-  \item testy jednostkowe schematów: wartości graniczne długości loginu
-        (2, 3, 30, 31 znaków) i hasła (7, 8, 128, 129), niedozwolone znaki
-        w loginie, każda brakująca klasa znaków w haśle, polskie litery w haśle,
-        niezgodne potwierdzenie hasła.
-\end{itemize}
-
-Testy tokenów tworzą niepoprawne tokeny (wygasłe, podpisane innym kluczem,
-niepodpisane) bezpośrednio w teście, bez pomocy API, bo tylko tak da się
-sprawdzić, że serwer je odrzuca. Pomocnicza funkcja \texttt{loginAs} tworzy
-użytkownika i loguje go przez API tak jak prawdziwy klient, a następnie zwraca
-gotowy nagłówek \texttt{Authorization}. Będą z niej korzystać testy kolejnych
-etapów.
-
-Skuteczność testów ponownie sprawdzono, wprowadzając celowo cztery usterki:
-inny komunikat dla nieistniejącego loginu, brak sprawdzania wystawcy tokenu,
-wliczanie udanych logowań do limitu i brak zamiany loginu na małe litery.
-Każdą z nich wykryły testy (od jednego do dwóch nieprzechodzących testów na
-usterkę).
-
-\subsubsection{Testy profilu kierowcy}
-
-W Etapie 5 testy funkcjonalne profilu (11 testów) napisano i uruchomiono
-\emph{przed} implementacją endpointów. Dziesięć z nich nie przechodziło
-z oczekiwanego powodu (404, brak endpointów). Jedenasty, sprawdzający
-usuwanie profilu razem z kontem, przechodził od razu, bo to zachowanie
-zapewnia już klucz obcy z \texttt{ON DELETE CASCADE} w bazie danych. Po
-implementacji przechodziły wszystkie. Później doszedł dwunasty test, opisany
-niżej. Testy sprawdzają:
-utworzenie pustego profilu przy rejestracji i jego usunięcie razem z kontem;
-odczyt i zmianę własnego profilu z normalizacją danych; zapis polskich znaków
-bez zmian; czyszczenie pominiętych pól przez \texttt{PUT}; niezależność
-profili dwóch użytkowników; ignorowanie pola \texttt{userId} wskazującego
-cudze konto; 400 ze szczegółami pól bez zmiany danych; 401 bez tokenu i dla
-usuniętego konta. Testy jednostkowe schematu profilu (27 testów) obejmują
-m.in. normalizację numerów telefonów, granice długości pól i dozwolone znaki.
-
-Podczas ręcznego sprawdzania przez \texttt{curl} w konsoli Git Bash na
-Windowsie imię ,,Łukasz'' wróciło jako ,,Lukasz''. Zanim uznano to za błąd
-aplikacji, powtórzono żądanie skryptem w Pythonie wysyłającym dane w UTF-8
-i dane wróciły bez zmian. Przyczyną była konwersja znaków argumentów wiersza
-poleceń w konsoli Windows, a nie aplikacja. Mimo to dodano test funkcjonalny
-z polskimi znakami, żeby ta własność była sprawdzana przy każdym uruchomieniu
-testów.
-
-\subsubsection{Testy dokumentów}
-
-W Etapie 6 najpierw napisano 47 testów funkcjonalnych API dokumentów.
-Uruchomione przed implementacją, wszystkie nie przechodziły z oczekiwanego
-powodu (404, brak endpointów). Pliki testowe są generowane w teście:
-prawdziwa sygnatura formatu i losowa reszta, więc każdy plik ma inny skrót.
-Testy sprawdzają m.in.:
-
-\begin{itemize}
-  \item pobrany plik jest bajt w bajt identyczny z przesłanym (m.in. zdjęcie
-        JPG o rozmiarze 50~kB);
-  \item obiekt odczytany z MinIO z pominięciem API różni się od oryginału,
-        nie zawiera tekstu umieszczonego w pliku i nie zaczyna się od
-        sygnatury \texttt{\%PDF-}; parametry szyfrowania mają oczekiwane
-        rozmiary i nie pojawiają się w odpowiedziach API;
-  \item format jest rozpoznawany po zawartości: PNG nazwany \texttt{.pdf}
-        zostaje zapisany jako PNG, a plik wykonywalny nazwany \texttt{.pdf}
-        i plik tekstowy są odrzucane; plik o rozmiarze 10~MB + 1~bajt jest
-        odrzucany, a plik o rozmiarze dokładnie 10~MB przyjmowany; brak pliku
-        i dwa pliki dają 400;
-  \item kolejne wersje dostają numery 2, 3, 4, starsze wersje nadal można
-        pobrać, a ten sam plik w dwóch wersjach ma różne zaszyfrowane klucze
-        danych;
-  \item filtrowanie po typie, statusie i obu naraz, wyszukiwanie z polskimi
-        znakami, stronicowanie, kolejność od ostatnio zmienionego;
-  \item zmiana statusu zgodna z regułami zapisuje wpis w historii,
-        niedozwolona daje 409 i nie zmienia niczego (także innych pól
-        z tego samego żądania); dokument zarchiwizowany jest tylko do
-        odczytu;
-  \item usunięty dokument znika z listy, szczegółów i pobierania, ale wiersz
-        z historią zostaje; ponowne usunięcie daje 404;
-  \item każda operacja na cudzym dokumencie (odczyt, pobranie pliku, zmiana,
-        nowa wersja, usunięcie) daje 404 i nie zmienia dokumentu;
-  \item plik zmieniony w MinIO o jeden bajt nie jest wydawany (500
-        \texttt{FILE\_INTEGRITY\_ERROR}).
-\end{itemize}
-
-Testy jednostkowe obejmują szyfrowanie (14 testów: poprawne odszyfrowanie,
-w tym pliku 10~MB, losowość klucza i wektora, wykrycie zmiany jednego bitu
-szyfrogramu, znacznika, wektora i zaszyfrowanego klucza, obcięte dane,
-przeniesienie do innego kontekstu, inny klucz główny), rozpoznawanie formatu
-plików (9 testów) oraz reguły przejść statusów i schematy dokumentów
-(26 testów w pakiecie \texttt{shared}, m.in. sprawdzenie, że z każdego
-statusu da się dojść do archiwizacji).
-
-Skuteczność testów sprawdzono pięcioma celowymi usterkami: brak warunku na
-właściciela w zapytaniu, zapis pliku w MinIO bez szyfrowania, pominięcie
-reguł przejść statusów, pokazywanie usuniętych dokumentów na liście
-i przyjmowanie plików o nierozpoznanym formacie. Każda usterka spowodowała
-niepowodzenie od jednego do pięciu testów.
-
-\subsubsection{Testy interfejsu (Playwright)}
-
-Scenariusze użytkownika sprawdza Playwright w przeglądarce
-Chromium z emulacją telefonu Pixel~7 (ekran, dotyk, agent użytkownika).
-Playwright sam uruchamia backend na bazie testowej (port 3101) oraz
-produkcyjnie zbudowany frontend serwowany przez \texttt{vite preview} (port
-5174, z przekierowaniem \texttt{/api} do backendu). Zmienna
-\texttt{E2E\_BASE\_URL} pozwala uruchomić te same testy na działającym stosie
-Docker (\texttt{http://localhost:8090}). Testy wyszukują elementy tak jak
-użytkownik, po etykietach i rolach (\texttt{getByLabel},
-\texttt{getByRole}), co przy okazji sprawdza dostępność formularzy.
-
-Scenariusze Etapu 7: rejestracja z automatycznym zalogowaniem; błędy walidacji
-przy polach i brak wysłania niepoprawnego formularza; zajęty login pokazany
-przy polu; logowanie; komunikat przy złym haśle; wylogowanie i ponowna
-ochrona stron; zachowanie sesji po odświeżeniu; powrót pod żądany adres po
-zalogowaniu; automatyczne wylogowanie przy nieważnym tokenie; dolny pasek
-nawigacji z elementami o wysokości co najmniej 44~pikseli.
-
-\paragraph{Napotkany problem: niestabilne testy.} Pierwsze przebiegi kończyły
-się przekroczeniem czasu w losowych testach. Zanim zmieniono konfigurację,
-ustalono przyczynę:
-\begin{enumerate}
-  \item Serwer deweloperski Vite przy pierwszym wejściu kompiluje zależności,
-        a kilka przeglądarek naraz czekało na tę kompilację. Rozwiązanie:
-        testy korzystają ze zbudowanej aplikacji (\texttt{vite preview}),
-        która przy okazji jest tą samą wersją, co trafia do produkcji.
-  \item Nadal zdarzały się pojedyncze przekroczenia czasu. Pomiary wykluczyły
-        kolejne hipotezy: backend odpowiadał na 12 równoczesnych rejestracji
-        w około 1~s, zarówno bezpośrednio, jak i przez proxy, a kompresja
-        odpowiedzi nie miała wpływu. Te same testy przeciwko stosowi Docker
-        (nginx) też bywały niestabilne. Ślady Playwright (\emph{trace})
-        pokazały, że w pierwszej partii testów sama rejestracja trwała
-        3--4~s, a w najgorszym przebiegu przeglądarka przez minutę nie mogła
-        wypełnić istniejącego już pola. Przyczyną było obciążenie komputera:
-        równolegle startujące przeglądarki konkurowały o procesor
-        z haszowaniem haseł argon2 (celowo kosztownym) oraz z innymi
-        kontenerami.
-\end{enumerate}
-Nie osłabiono parametrów argon2 na potrzeby testów, bo testy sprawdzałyby
-wtedy inną konfigurację niż produkcyjna. Liczbę równoległych przeglądarek
-ograniczono do dwóch, wydłużono limity czasu i dodano jedno automatyczne
-powtórzenie testu. Test, który przechodzi dopiero za drugim razem, Playwright
-oznacza jako \emph{flaky}, więc problem pozostaje widoczny w raporcie.
-
-Etap 8 dodał 11 scenariuszy dokumentów i profilu: dodanie dokumentu z pliku
-i jego widoczność w podglądzie (sprawdzane jest, że obraz faktycznie się
-wczytał) oraz na liście; odrzucenie przez serwer pliku podszywającego się pod
-PDF; filtrowanie po typie i statusie oraz wyszukiwanie; dodanie nowej wersji
-(dwie wersje na liście, wpis w historii); zmiana statusu widoczna na liście;
-edycja tytułu i numeru; pobranie wersji i porównanie treści pliku
-z oryginałem; usunięcie po potwierdzeniu; zapis profilu z normalizacją
-wartości i błędy walidacji przy polach. Dokumenty potrzebne tylko jako tło
-(np. do testu filtrów) są tworzone bezpośrednio przez API, co skraca test.
-
-\subsubsection{Przykład naprawy błędu: najpierw test, potem poprawka}
-
-Podczas pisania testów Etapu 8 kilka scenariuszy, które otwierały stronę
-dokumentu pod bezpośrednim adresem, zatrzymywało się na komunikacie
-,,Sesja wygasła'', mimo że użytkownik był zalogowany. Postępowanie było
-następujące.
-
-\begin{enumerate}
-  \item \textbf{Ustalenie przyczyny.} Pierwsza hipoteza (osadzony podgląd PDF
-        blokuje przeglądarkę testową) była tylko częściowo trafna: po zmianie
-        podglądu błąd pozostał. Zapis stanu strony z Playwright pokazał, że
-        pierwsze zapytanie po wczytaniu strony dostaje odpowiedź 401.
-        Komponent \texttt{AuthProvider} przekazywał token do klienta API
-        w efekcie (\texttt{useEffect}), a React wykonuje efekty komponentów
-        potomnych przed efektem rodzica. Zapytania o dane, uruchamiane w
-        efektach potomków, wychodziły więc przed podłączeniem tokenu. Przy
-        logowaniu problem nie występował, bo token był ustawiany w samej
-        funkcji logowania. Występował tylko po przeładowaniu strony, gdy sesja
-        była odtwarzana z \texttt{localStorage}.
-  \item \textbf{Test odtwarzający błąd.} Dodano scenariusz: utwórz dokument,
-        odśwież stronę, sprawdź, że dokument jest na liście, otwórz jego stronę
-        z adresu i sprawdź, że nie ma komunikatu o wygaśnięciu sesji. Przed
-        poprawką test nie przechodził z opisanego powodu (lista po odświeżeniu
-        była pusta).
-  \item \textbf{Poprawka.} Token przeniesiono do małego modułu poza Reactem
-        (\texttt{token-store.ts}), inicjowanego z zapisanej sesji przy
-        załadowaniu aplikacji, zanim wyrenderuje się jakikolwiek komponent.
-        Klient API odczytuje go stamtąd przy każdym żądaniu. Po poprawce
-        nowy test i cały zestaw scenariuszy przechodzą.
-\end{enumerate}
-
-\noindent Błąd dotyczył zwykłego użycia aplikacji (odświeżenie strony, wejście
-z zakładki lub z ikony PWA). Testy funkcjonalne backendu nie mogły go wykryć,
-bo backend działał poprawnie. Wykryły go dopiero testy interfejsu w
-przeglądarce.
-
-\subsubsection{Testy aparatu}
-
-Chromium jest uruchamiany z flagami, które dają syntetyczny obraz z kamery
-i automatyczną zgodę na dostęp do niej:
+Scenariusze interfejsu wykonuje Playwright w przeglądarce Chromium z emulacją
+telefonu Pixel~7 (rozmiar ekranu, obsługa dotyku, agent użytkownika).
+Scenariusze panelu biura przełączają przeglądarkę na ekran komputera
+1440$\times$900. Playwright sam uruchamia backend na bazie testowej oraz
+zbudowaną wersję frontendu (\texttt{vite preview}). Aparat zastępuje wirtualna
+kamera Chromium z automatyczną zgodą na dostęp, włączana flagami:
 
 \begin{small}
 \begin{verbatim}
@@ -278,58 +44,137 @@ i automatyczną zgodę na dostęp do niej:
 \end{verbatim}
 \end{small}
 
-\noindent Scenariusze Etapu 9:
-\begin{itemize}
-  \item zdjęcie z aparatu: podgląd na żywo, wykonanie zdjęcia, obrót,
-        zatwierdzenie, zapis dokumentu; przez API sprawdzane jest, że zapisany
-        plik jest JPEG-iem mniejszym niż 1~MB;
-  \item zamknięcie widoku aparatu zatrzymuje strumień (ścieżka wideo przechodzi
-        w stan \texttt{ended});
-  \item odmowa dostępu do aparatu, zasymulowana podmienioną funkcją
-        \texttt{getUserMedia}, która zgłasza błąd \texttt{NotAllowedError}: komunikat i pole zapasowe z atrybutem
-        \texttt{capture="environment"}, z którego zdjęcie trafia do edytora;
-  \item brak interfejsu \texttt{mediaDevices} (jak w niezabezpieczonym
-        kontekście): komunikat i pole zapasowe;
-  \item duże zdjęcie z galerii (4000~×~3000~px, ponad 1~MB) jest zmniejszane do
-        2000~×~1500~px, a zapisany plik jest mniejszy niż 1~MB i mniejszy od
-        oryginału.
-\end{itemize}
+\noindent Elementy strony test wyszukuje po etykietach i rolach
+(\texttt{getByLabel}, \texttt{getByRole}), tak jak odnajduje je osoba
+korzystająca z czytnika ekranu. Przy okazji sprawdza to, czy pola formularzy
+są poprawnie opisane.
 
-\paragraph{Błąd wykryty testem.} Test sprawdzający, że zamknięcie aparatu
-zatrzymuje strumień, nie przeszedł z nieoczekiwanego powodu: jeszcze przed
-zamknięciem strumień miał zero aktywnych ścieżek, bo aparat wyłączał się
-zaraz po uruchomieniu. Przyczyną był efekt w hooku \texttt{useCamera},
-zależny od stanu aparatu. Zmiana stanu z ,,uruchamianie'' na ,,na żywo''
-wywoływała sprzątanie poprzedniego efektu, które zatrzymywało strumień.
-Pierwszy test aparatu przechodził mimo to, bo element \texttt{<video>}
-zachował ostatnią klatkę. Użytkownik zobaczyłby jednak zamrożony obraz.
-Po poprawce (efekt uruchamiany raz przy wyświetleniu widoku, sprzątanie
-tylko przy jego zamknięciu) oba testy przechodzą. Na tym samym przykładzie
-widać, że test sprawdzający sprzątanie zasobów wykrył też błąd w samym
-uruchamianiu.
+\subsubsection{Zakres testów}
 
-\paragraph{Stabilność.} Testy aparatu dekodują i kompresują zdjęcia
-12~Mpx, co przy dwóch równoległych przeglądarkach na obciążonym komputerze
-znowu wydłużało czas ponad limity. Testy uruchamiane są więc kolejno (jedna
-przeglądarka). Paradoksalnie cały zestaw 26 scenariuszy wykonuje się wtedy
-szybciej (ok. 1,7~min) niż równolegle, bo przeglądarki nie konkurują o procesor
-z haszowaniem argon2.
+Tabela~\ref{tab:zakres-testow} zestawia, co sprawdzają testy w poszczególnych
+obszarach. Liczby testów i pokrycie kodu podaje tabela~\ref{tab:pokrycie}.
 
-\paragraph{Test ręczny na telefonie.} Plan przewiduje sprawdzenie aparatu na
-prawdziwym telefonie z systemem Android podłączonym przez ADB
-(\texttt{adb reverse} przekierowuje port aplikacji, dzięki czemu telefon
-otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
-Test wykonano na telefonie Samsung Galaxy A26 z systemem Android~16
-i przeglądarką Chrome, podłączonym przez USB (rysunki~\ref{fig:zrzuty-1},
-\ref{fig:zrzuty-2} i~\ref{fig:telefon}). Przebieg: rejestracja konta, dodanie
-dokumentu CMR, zgoda na dostęp do aparatu, zdjęcie dokumentu tylnym
-aparatem, kadrowanie, zapis, przesłanie do biura, decyzja biura widoczna na
-telefonie oraz instalacja aplikacji na ekranie głównym (ikona ,,Kierowca'',
-uruchamiana bez paska adresu). Aparat przekazuje klatki 1440$\times$1080
-pikseli. Po wykadrowaniu do 1080$\times$810 pikseli i kompresji zdjęcie
-zajęło 70,1~kB zamiast 367,8~kB (rysunek~\ref{fig:zrzuty-2}). Test
-potwierdził wyniki emulacji i nie wykazał problemów z uprawnieniami aparatu,
-obsługą dotykiem ani instalacją PWA.
+\begin{table}[htbp]
+\centering
+\caption{Zakres testów}
+\label{tab:zakres-testow}
+\small
+\begin{tabular}{|p{0.2\textwidth}|p{0.72\textwidth}|}
+\hline
+\textbf{Obszar} & \textbf{Sprawdzane zachowanie} \\
+\hline
+Stan i konfiguracja & \texttt{/health} i \texttt{/health/ready} (503 przy awarii bazy, MinIO lub braku bucketa, bez szczegółów błędu); serwer z błędną konfiguracją kończy pracę z kodem~1 i wymienia wszystkie błędy bez wartości sekretów; jednolity format błędów (400, 404, 413) \\
+\hline
+Rejestracja i logowanie & walidacja pól i wartości graniczne; zajęty login lub e-mail (409); ten sam komunikat dla złego loginu i złego hasła; limit nieudanych prób (429); odrzucanie tokenów wygasłych, podpisanych innym kluczem, niepodpisanych i z obcym wystawcą \\
+\hline
+Profil & normalizacja danych, polskie znaki, oddzielne profile użytkowników \\
+\hline
+Dokumenty i pliki & pobrany plik identyczny z przesłanym; w MinIO szyfrogram bez czytelnej treści; format rozpoznawany po zawartości; limit 10~MB; kolejne wersje; reguły zmiany statusu; usuwanie miękkie; 404 dla cudzego dokumentu; odmowa wydania pliku zmienionego w magazynie \\
+\hline
+Role i panel biura & 403 dla konta innej roli; dokumenty wszystkich kierowców z filtrami; akceptacja i odrzucenie z wymaganym powodem; z dwóch jednoczesnych decyzji zapisuje się jedna; konto biura z konfiguracji nie przejmuje istniejącego konta kierowcy \\
+\hline
+Interfejs & rejestracja, logowanie, sesja po odświeżeniu strony, praca z dokumentami, profil; pełna ścieżka kierowcy od rejestracji do wylogowania; obieg odrzucenie, poprawa, akceptacja w dwóch przeglądarkach naraz \\
+\hline
+Aparat & zdjęcie z obrotem i kompresją do pliku JPEG poniżej 1~MB; wyłączenie kamery po zamknięciu widoku; odmowa dostępu i brak aparatu (pole zapasowe); zmniejszenie zdjęcia 4000$\times$3000 z galerii \\
+\hline
+PWA & manifest i ikony; start bez sieci z banerem braku połączenia; brak odpowiedzi API w pamięci service workera \\
+\hline
+Monitoring & metryki z etykietą szablonu trasy; liczniki nieudanych logowań i przesłanych plików; 503 z \texttt{/health} po zablokowaniu pętli zdarzeń; poprawność reguł alertów (\texttt{promtool}, \texttt{amtool}) \\
+\hline
+\end{tabular}
+\zrodlo{opracowanie własne}
+\end{table}
+
+Aby sprawdzić, czy testy rzeczywiście wykrywają błędy, kilka razy celowo
+psuto kod. Z zapytania o dokument usuwano warunek na właściciela, plik
+zapisywano w MinIO bez szyfrowania, pomijano reguły zmiany statusu, a błąd
+500 ujawniał treść wyjątku. Każdą z takich usterek wykrył co najmniej jeden
+test.
+
+\subsubsection{Błędy wykryte przez testy}
+
+Testy funkcjonalne wykryły kilka błędów, których nie ujawniłyby testy
+jednostkowe. Najciekawszy z nich dotyczył sesji. Po odświeżeniu strony
+dokumentu aplikacja pokazywała komunikat ,,Sesja wygasła'', mimo że
+użytkownik był zalogowany. Zapis przebiegu testu pokazał, że pierwsze
+zapytanie po wczytaniu strony dostaje odpowiedź 401. Komponent
+\texttt{AuthProvider} przekazywał token do klienta API w efekcie
+(\texttt{useEffect}), a React wykonuje efekty komponentów potomnych przed
+efektem rodzica. Zapytania o dane wychodziły zatem, zanim klient dostał token.
+Przy zwykłym logowaniu błąd nie występował, bo token był ustawiany od razu.
+Test odtwarzający błąd (odświeżenie strony, a potem otwarcie dokumentu
+z adresu) nie przechodził. Po przeniesieniu tokenu do osobnego modułu poza
+Reactem, odczytywanego przez klienta API przy każdym żądaniu, test przeszedł.
+Pozostałe błędy zestawia tabela~\ref{tab:bledy-testy}.
+
+\begin{table}[htbp]
+\centering
+\caption{Pozostałe błędy wykryte przez testy}
+\label{tab:bledy-testy}
+\small
+\begin{tabular}{|p{0.36\textwidth}|p{0.56\textwidth}|}
+\hline
+\textbf{Objaw} & \textbf{Przyczyna i poprawka} \\
+\hline
+Kamera wyłączała się zaraz po włączeniu (użytkownik widziałby zamrożony obraz) & efekt w hooku \texttt{useCamera} zależał od stanu aparatu, a zmiana stanu uruchamiała sprzątanie; efekt działa teraz przez cały czas wyświetlania widoku \\
+\hline
+Po wylogowaniu następny użytkownik trafiał na stronę poprzedniego & strażnik tras zapamiętywał adres powrotu także przy wylogowaniu przyciskiem; adres jest zapamiętywany tylko po wygaśnięciu sesji \\
+\hline
+Metryki HTTP miały zły szablon trasy & Express przywraca ścieżkę routera przed końcem odpowiedzi; ścieżka jest zapamiętywana wcześniej \\
+\hline
+Zawieszenie procesu mogło pozostać niezauważone & funkcja \texttt{monitorEventLoopDelay} pomijała blokadę tuż po wyzerowaniu pomiaru; zastąpiono ją własnym pomiarem \\
+\hline
+Biuro widziało stary status dokumentu ponownie przesłanego przez kierowcę & dane z pamięci podręcznej były uznawane za aktualne przez 30~s; listy i szczegóły dokumentów są pobierane przy każdym wejściu na ekran \\
+\hline
+Status wybrany zaraz po wpisaniu wyszukiwanego tekstu był cofany & opóźnione o 300~ms wyszukiwanie korzystało ze starego stanu filtrów; poprawka używa najnowszego stanu (\texttt{useEffectEvent}) \\
+\hline
+\end{tabular}
+\zrodlo{opracowanie własne}
+\end{table}
+
+\subsubsection{Stabilność testów w przeglądarce}
+
+Pierwsze przebiegi testów interfejsu kończyły się przekroczeniem czasu
+w losowych scenariuszach. Zapisy przebiegu (\emph{trace}) i pomiary wykazały,
+że nie był to błąd aplikacji. Kilka przeglądarek naraz konkurowało o procesor
+z haszowaniem haseł argon2, które jest celowo kosztowne, i z dekodowaniem
+zdjęć 12~Mpx. Dodatkowo serwer deweloperski Vite kompilował zależności przy
+pierwszym wejściu. Testy korzystają teraz ze zbudowanej aplikacji, scenariusze
+wykonują się po kolei, limity czasu są dłuższe, a nieudany test jest raz
+powtarzany. Test, który przechodzi dopiero za drugim razem, Playwright oznacza
+jako niestabilny (\emph{flaky}), dzięki czemu problem nie znika z raportu.
+Parametrów argon2 nie osłabiono, bo testy sprawdzałyby wtedy inną konfigurację
+niż produkcyjna. Cały zestaw 36 scenariuszy trwa od dwóch do pięciu minut.
+
+\subsubsection{Testy obrazów Docker}
+
+Te same scenariusze można uruchomić na obrazach Docker, czyli na konfiguracji,
+która jest wdrażana (nginx, backend, baza, MinIO). Początkowo testy
+uruchamiano na działającym stosie aplikacji, co zapisywało konta i dokumenty
+testowe w jego bazie obok prawdziwych danych. Po zauważeniu problemu dane
+testowe usunięto, a testy obrazów uruchamia skrypt
+\path{scripts/e2e-docker.mjs} (\texttt{npm run test:e2e:docker}). Tworzy on
+jednorazową kopię stosu: osobny projekt Docker Compose z pustymi wolumenami
+i innymi portami. Po udanych testach kopia jest usuwana razem z danymi. Po nieudanych
+zostaje do analizy, a logi kontenerów są zapisywane do pliku.
+Konfiguracja Playwright odmawia pracy z zewnętrznym adresem uruchomionym
+inaczej niż przez ten skrypt. Na kopii stosu przechodzi cały zestaw 36
+scenariuszy.
+
+\subsubsection{Test na prawdziwym telefonie}
+
+Aparat, obsługę dotykiem i instalację PWA sprawdzono ręcznie na telefonie
+Samsung Galaxy A26 z systemem Android~16 i przeglądarką Chrome, podłączonym
+przez USB. Polecenie \texttt{adb reverse} przekierowuje port aplikacji, dzięki
+czemu telefon otwiera ją pod adresem \texttt{localhost}, który przeglądarka
+uznaje za bezpieczny kontekst. Sprawdzono rejestrację, dodanie dokumentu CMR,
+zgodę na dostęp do aparatu, zdjęcie tylnym aparatem, kadrowanie, zapis,
+przesłanie do biura, decyzję biura widoczną na telefonie oraz instalację
+aplikacji na ekranie głównym (rysunki~\ref{fig:zrzuty-1}, \ref{fig:zrzuty-2}
+i~\ref{fig:telefon}). Aparat przekazuje klatki 1440$\times$1080 pikseli. Po
+wykadrowaniu do 1080$\times$810 pikseli i kompresji zdjęcie zajęło 70,1~kB
+zamiast 367,8~kB. Test potwierdził wyniki uzyskane w emulacji i nie wykazał
+problemów z uprawnieniami aparatu, dotykiem ani instalacją.
 
 \begin{figure}[htbp]
 \centering
@@ -376,148 +221,15 @@ obsługą dotykiem ani instalacją PWA.
 \zrodlo{opracowanie własne (zrzuty ekranu telefonu)}
 \end{figure}
 
-
-\subsubsection{Testy PWA}
-
-Trzy scenariusze Etapu 10 działają na zbudowanej aplikacji (service worker
-działa tylko w wersji produkcyjnej):
-\begin{itemize}
-  \item strona wskazuje manifest, który ma wymagane pola (nazwa, tryb
-        \texttt{standalone}, adres startowy, kolory), ikony 192 i 512~pikseli
-        oraz ikonę \emph{maskable}, a każda ikona jest dostępna jako PNG;
-  \item po zarejestrowaniu service workera i przełączeniu przeglądarki w tryb
-        offline aplikacja uruchamia się z pamięci podręcznej i pokazuje baner
-        braku połączenia, który znika po powrocie sieci;
-  \item po otwarciu dokumentu w pamięci podręcznej service workera nie ma
-        żadnej odpowiedzi z adresów \texttt{/api/}, a więc ani danych, ani
-        plików dokumentów.
-\end{itemize}
-
-\subsubsection{Testy monitoringu i watchdogów}
-
-Testy funkcjonalne backendu (8 nowych, pisane przed implementacją) sprawdzają,
-że \texttt{/metrics} zwraca format Prometheusa z metrykami Node.js; licznik
-żądań rośnie o jeden po żądaniu i ma etykietę szablonu trasy; nieznane
-ścieżki mają etykietę \texttt{unmatched}, a ich adresy nie trafiają do metryk;
-licznik nieudanych logowań rośnie tylko przy złych danych logowania; upload
-zwiększa licznik według typu i sumę rozmiarów o rozmiar pliku; czas zapytań
-do bazy jest mierzony; \texttt{/metrics} nie jest dostępny pod \texttt{/api};
-\texttt{/health} zwraca 503 po zablokowaniu pętli zdarzeń na 600~ms (przy
-progu 200~ms) i 200 przy kolejnym sprawdzeniu. Ten ostatni test wykazał, że
-wbudowana funkcja \texttt{monitorEventLoopDelay} pomija blokadę następującą
-tuż po wyzerowaniu pomiaru, co doprowadziło do własnej implementacji pomiaru
-(podrozdział~\ref{sec:monitoring}).
-
-Reguły alertów i konfiguracje Prometheusa oraz Alertmanagera są sprawdzane
-narzędziami \texttt{promtool} i \texttt{amtool} (\texttt{npm run
-monitoring:check}). Działanie watchdogów na działającym stosie sprawdza skrypt
-\path{monitoring/chaos-test.sh} (\texttt{npm run chaos}), opisany
-w podrozdziale~\ref{sec:monitoring}.
-
-\subsubsection{Pełny scenariusz i testy na stosie Docker}
-
-Test \texttt{full-scenario.spec.ts} przechodzi całą ścieżkę kierowcy w jednej
-sesji przeglądarki: rejestracja, uzupełnienie profilu, zdjęcie dokumentu
-aparatem z obrotem i kompresją, zapis dokumentu, nowa wersja (PDF), przesłanie
-dokumentu i sprawdzenie statusu na liście z filtrem, pobranie obu wersji
-(sprawdzana jest treść pliku PDF i sygnatura JPEG zdjęcia), wylogowanie
-i ponowne zalogowanie. Po Etapie~12 cały ówczesny zestaw 31 scenariuszy
-Playwright przechodził zarówno na lokalnie uruchamianym backendzie, jak i na
-pełnym stosie Docker za serwerem nginx
-(\texttt{E2E\_BASE\_URL=http://localhost:8090}), czyli na tej samej
-konfiguracji, która jest wdrażana. Po Etapie~15 zestaw liczy 36 scenariuszy
-i przechodzi zarówno lokalnie, jak i na stosie Docker.
-
-Testy tworzą konta i dokumenty, więc ich uruchamianie na działającym stosie
-zapisywało dane testowe w jego bazie i magazynie plików, obok prawdziwych
-danych. Po zauważeniu tego problemu dane testowe usunięto, a testy obrazów
-Docker uruchamia teraz skrypt \path{scripts/e2e-docker.mjs}
-(\texttt{npm run test:e2e:docker}). Tworzy on jednorazową kopię stosu z tych
-samych obrazów: osobny projekt Docker Compose z pustymi wolumenami i innymi
-portami, tylko z usługami aplikacji. Na tej kopii uruchamia testy, a potem
-usuwa ją razem z danymi. Konfiguracja Playwright odmawia pracy z zewnętrznym
-adresem, jeśli nie uruchomił jej ten skrypt, więc pomyłka nie zapisze już
-danych testowych w prawdziwej bazie. Tak samo działa skrypt zrzutów ekranu.
-
-Pełny scenariusz wykrył kolejny błąd. Po wylogowaniu przyciskiem i ponownym
-zalogowaniu aplikacja przenosiła użytkownika na stronę, z której się
-wylogował, zamiast na listę dokumentów. Strażnik tras zapamiętywał tę stronę
-jako ,,adres powrotu'', co ma sens po wygaśnięciu sesji, ale nie po świadomym
-wylogowaniu. Na współdzielonym telefonie następny kierowca trafiałby po
-zalogowaniu na adres cudzego dokumentu. Najpierw dodano test, który ten błąd
-odtwarza (nie przechodził). Następnie kontekst uwierzytelnienia zaczął
-rozróżniać wylogowanie przyciskiem od automatycznego, a strażnik zapamiętuje
-adres powrotu tylko w drugim przypadku.
-
-\subsubsection{Testy ról i panelu biura}
-
-Etap~15 zaczął się od testów, które przed implementacją nie przechodziły
-z oczekiwanego powodu (brak roli w bazie, brak endpointów biura, brak modułu
-konta biura). Doszły:
-\begin{itemize}
-  \item 22 testy funkcjonalne API biura (\texttt{office.test.ts}):
-        rejestracja zawsze tworzy kierowcę; rola w odpowiedzi logowania
-        i \texttt{/api/auth/me}; 401 bez tokenu i 403 dla kierowcy na każdym
-        endpoincie biura oraz 403 dla biura na endpointach kierowcy; lista
-        dokumentów wszystkich kierowców (bez usuniętych) z danymi kierowcy
-        i filtrami (status, kierowca, typ, tekst); szczegóły i pobranie
-        odszyfrowanego pliku przez biuro; akceptacja i odrzucenie z zapisem
-        autora i komentarza w historii, którą widzi kierowca; brak powodu
-        odrzucenia (400); ocena dokumentu nieprzesłanego (409); dwie
-        jednoczesne decyzje, z których zapisuje się dokładnie jedna; pełna pętla
-        odrzucenie, poprawa, ponowne przesłanie, akceptacja; zakładanie konta
-        biura z konfiguracji (utworzenie, brak duplikatu, zmiana hasła, brak
-        awansu istniejącego konta kierowcy);
-  \item testy kierowcy: akceptacja lub odrzucenie własnego dokumentu kończy się
-        odpowiedzią 403 i nie zmienia statusu, a historia zapisuje autora zmiany;
-  \item testy jednostkowe: podział przejść statusu między role (w tym
-        sprawdzenie, że role razem pokrywają każde przejście dokładnie raz),
-        schemat decyzji biura, filtr kierowcy, walidacja konfiguracji konta
-        biura, opis historii i powodu odrzucenia oraz kierowanie ról do ich
-        części aplikacji;
-  \item cztery scenariusze Playwright (\texttt{office.spec.ts}): biuro
-        w przeglądarce na komputerze (1440$\times$900) widzi dokumenty
-        przesłane przez różnych kierowców i filtruje je po kierowcy; pełny obieg
-        w dwóch przeglądarkach naraz (biuro odrzuca z powodem, kierowca na
-        emulowanym telefonie widzi powód i przesyła dokument ponownie, biuro
-        akceptuje); rozdzielenie części aplikacji dla kierowcy i biura; filtr
-        wybrany w trakcie wyszukiwania (opis niżej).
-\end{itemize}
-
-Scenariusz pełnego obiegu wykrył błąd. Po ponownym przesłaniu dokumentu przez
-kierowcę biuro wracało do dokumentu i nadal widziało status ,,Odrzucony''
-bez przycisku ,,Akceptuj''. Przyczyną była pamięć podręczna TanStack Query,
-która przez 30~sekund uznawała dane za aktualne. Wcześniej dokumenty zmieniał
-tylko ich właściciel, więc to nie przeszkadzało. Test najpierw nie przechodził.
-Po zmianie (listy i szczegóły dokumentów pobierane na nowo przy każdym wejściu
-na ekran) przechodzi.
-
-Podczas pomiaru pokrycia (wolniejsze wykonanie z instrumentacją kodu)
-dwukrotnie nie przeszedł istniejący scenariusz filtrowania listy. Przyczyną
-był błąd w samej aplikacji. Wyszukiwanie jest stosowane 300~ms po ostatnim
-naciśnięciu klawisza, a funkcja wywoływana z opóźnieniem pamiętała filtry
-z chwili pisania. Jeśli w tym czasie użytkownik wybrał status, opóźnione
-wyszukiwanie przywracało poprzedni filtr. Najpierw dodano dwa scenariusze,
-które wybierają filtr od razu po wpisaniu tekstu, dla listy kierowcy
-i listy biura. Oba nie przechodziły, bo w adresie zostawało tylko
-wyszukiwanie. Poprawka używa w opóźnionym wywołaniu najnowszego stanu strony
-(\texttt{useEffectEvent} z React~19). Po niej scenariusze przechodzą.
-
-Nowy podział uprawnień zmienił też jeden dotychczasowy scenariusz: po
-przesłaniu dokumentu kierowca nie widzi już przycisku ,,Zaakceptowany'',
-tylko informację, że dokument czeka na decyzję biura. Scenariusz zaktualizowano
-zgodnie z nowym wymaganiem.
-
 \subsubsection{Pokrycie kodu}
 
 Pokrycie mierzy Vitest z modułem V8 (\texttt{npm run test:coverage}).
-Dla frontendu, którego interfejs jest sprawdzany głównie testami w przeglądarce,
-mierzone jest dodatkowo pokrycie kodu przez testy Playwright
-(\texttt{npm run test:e2e:coverage}). Chromium zbiera pokrycie V8 każdej
-strony, a biblioteka monocart-coverage-reports mapuje je przez mapy źródeł na
-pliki \path{frontend/src}. Mapy źródeł są generowane tylko na potrzeby tego
-pomiaru i nie trafiają do obrazu produkcyjnego. Wyniki zawiera
-tabela~\ref{tab:pokrycie}.
+Interfejs jest sprawdzany głównie w przeglądarce, dlatego dla frontendu
+mierzone jest także pokrycie kodu przez testy Playwright
+(\texttt{npm run test:e2e:coverage}). Chromium zbiera pokrycie każdej strony,
+a biblioteka monocart-coverage-reports przypisuje je do plików źródłowych
+przez mapy źródeł. Mapy powstają tylko na potrzeby tego pomiaru i nie trafiają
+do obrazu produkcyjnego. Wyniki zawiera tabela~\ref{tab:pokrycie}.
 
 \begin{table}[htbp]
 \centering
@@ -540,21 +252,20 @@ Frontend (tylko jednostkowe, 62 testy) & 12,5\,\% & 14,5\,\% & 10,0\,\% & 12,8\,
 \zrodlo{opracowanie własne}
 \end{table}
 
-Niskie pokrycie frontendu samymi testami jednostkowymi jest zamierzone:
-testy jednostkowe dotyczą czystej logiki (obliczenia kompresji, kontrola
-pliku, formatowanie, mapowanie błędów), a komponenty są sprawdzane
-w przeglądarce, tak jak używa ich kierowca. Z pomiaru backendu wyłączono
-wygenerowany kod klienta Prisma i plik startowy \texttt{server.ts}, który
-jest sprawdzany testem uruchamiającym proces serwera i testem watchdogów.
+Niskie pokrycie frontendu samymi testami jednostkowymi jest zamierzone. Testy
+jednostkowe dotyczą czystej logiki (obliczenia kompresji, kontrola pliku,
+formatowanie, opis historii), a komponenty są sprawdzane w przeglądarce, tak
+jak używa ich kierowca. Z pomiaru backendu wyłączono wygenerowany kod klienta
+Prisma oraz plik startowy \texttt{server.ts}, który sprawdza osobny test
+uruchamiający prawdziwy proces serwera.
 
 \subsubsection{Ciągła integracja}
 
-Plik \path{.github/workflows/ci.yml} definiuje potok GitHub Actions uruchamiany
-przy każdym \emph{pushu} i \emph{pull requeście}. Składa się z czterech zadań:
-kontrola kodu (lint, typy, build, konfiguracja monitoringu); testy jednostkowe
-i funkcjonalne z pokryciem na bazie i MinIO z \texttt{docker-compose.test.yml};
-testy Playwright z pokryciem; zbudowanie i uruchomienie całego stosu Docker
-z oczekiwaniem na stan \emph{healthy} i testem przez nginx. Raporty trafiają
-do artefaktów. Poprawność pliku sprawdzono narzędziem \texttt{actionlint}.
-Potok nie był uruchomiony, bo repozytorium nie ma jeszcze zdalnej kopii
-w serwisie GitHub.
+Plik \path{.github/workflows/ci.yml} opisuje potok GitHub Actions
+uruchamiany przy każdym wysłaniu zmian do repozytorium. Składa się z czterech
+zadań: kontroli kodu (lint, typy, budowanie, konfiguracja monitoringu), testów
+jednostkowych i funkcjonalnych z pokryciem, testów Playwright z pokryciem oraz
+zbudowania i uruchomienia całego stosu Docker z oczekiwaniem na stan
+\emph{healthy}. Raporty trafiają do artefaktów. Poprawność pliku sprawdzono
+narzędziem \texttt{actionlint}. Potok nie był jeszcze uruchomiony, bo
+repozytorium nie ma zdalnej kopii w serwisie GitHub.

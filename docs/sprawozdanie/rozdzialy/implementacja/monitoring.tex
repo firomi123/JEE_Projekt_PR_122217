@@ -36,8 +36,8 @@ zdarzeń) zawiera metryki aplikacji:
   \item \texttt{db\_query\_duration\_seconds} -- czas zapytań do bazy, mierzony
         na podstawie zdarzeń zapytań klienta Prisma.
 \end{itemize}
-Endpoint \texttt{/metrics} leży poza ścieżką \texttt{/api}, więc serwer nginx
-go nie udostępnia. Prometheus pobiera go przez wewnętrzną sieć Dockera.
+Endpoint \texttt{/metrics} leży poza ścieżką \texttt{/api}, dlatego serwer
+nginx go nie udostępnia. Prometheus pobiera go przez wewnętrzną sieć Dockera.
 Dodatkowe dane zbierają eksportery: \texttt{postgres-exporter} (połączenia,
 blokady, rozmiar bazy, transakcje), cAdvisor (procesor, pamięć i restarty
 każdego kontenera), \texttt{node-exporter} (zasoby komputera: procesor,
@@ -69,9 +69,9 @@ odpowiedzi), ,,Kontenery i host'' oraz ,,Baza danych i magazyn plików''.
         wystarczająco dużo na plik 10~MB z telefonu). PostgreSQL przerywa
         zapytanie po 10~s (\texttt{statement\_timeout}), sterownik rezygnuje
         po 15~s, a połączenie z bazą i z MinIO musi powstać w ciągu kilku
-        sekund. Zawieszona zależność nie zawiesza więc całego API.
+        sekund. Zawieszona zależność nie zawiesza przez to całego API.
   \item \textbf{Zablokowana pętla zdarzeń.} Node.js obsługuje wszystkie
-        żądania w jednym wątku, więc zapętlony synchroniczny kod blokuje całą
+        żądania w jednym wątku, dlatego zapętlony synchroniczny kod blokuje całą
         aplikację, choć proces formalnie działa. Zegar uruchamiany co 100~ms
         mierzy, o ile później się wykonał, niż powinien, i zapamiętuje
         największe opóźnienie. Jeśli od poprzedniego sprawdzenia przekroczyło
@@ -91,9 +91,9 @@ zawieszony), nie jest restartowany. Dlatego dodano kontener
 \textbf{autoheal}: co 5~sekund sprawdza on kontenery z etykietą
 \texttt{autoheal=true} i restartuje te, które stały się \emph{unhealthy}.
 Gniazdo Dockera jest mu udostępnione tylko do odczytu. W Kubernetesie tę samą
-rolę pełni wbudowana \emph{livenessProbe}, więc dodatkowy kontener nie byłby
+rolę pełni wbudowana \emph{livenessProbe} i dodatkowy kontener nie byłby
 potrzebny. Obrazy Loki i Alloy nie mają powłoki (obrazy \emph{distroless}),
-więc nie da się w nich wykonać polecenia healthcheck. Ich stan kontroluje
+przez co nie da się w nich wykonać polecenia healthcheck. Ich stan kontroluje
 Prometheus, który pobiera z nich metryki (alert \texttt{TargetDown}).
 
 Każda usługa ma limit pamięci (\texttt{mem\_limit}) i procesora
@@ -114,7 +114,7 @@ Reguły alertów są zapisane w repozytorium (\path{monitoring/prometheus/alerts
 i sprawdzane narzędziem \texttt{promtool}. Tabela~\ref{tab:alerty} zawiera
 ich listę. Alertmanager grupuje alerty i wysyła powiadomienia jako żądania
 HTTP (\emph{webhook}) do kontenera \texttt{alert-logger}, który zapisuje je
-w swoim logu, a więc także w Loki. W rzeczywistym wdrożeniu wystarczy dodać
+w swoim logu, a stamtąd trafiają do Loki. W rzeczywistym wdrożeniu wystarczy dodać
 odbiorcę e-mail, Discord lub Slack w pliku konfiguracyjnym Alertmanagera.
 Reguła wyciszania pomija alerty o błędach i opóźnieniach, gdy usługa jest
 całkowicie niedostępna.
@@ -164,7 +164,7 @@ zgłosić. To samo rozwiązanie stosuje standardowy zestaw kube-prometheus.
 Grafana Alloy odczytuje logi wszystkich kontenerów projektu przez API Dockera
 i wysyła je do Loki z etykietami \texttt{service} i \texttt{container}.
 Pierwotny plan zakładał narzędzie Promtail, ale Grafana wycofała je na rzecz
-Alloy. Logi backendu są w formacie JSON, więc w Grafanie (widok
+Alloy. Logi backendu są w formacie JSON, dzięki czemu w Grafanie (widok
 \emph{Explore}) można je filtrować po polach, np.
 \verb|{service="backend"} | json | requestId="…"|, i powiązać log żądania
 z błędem, który wystąpił podczas jego obsługi.

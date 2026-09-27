@@ -37,8 +37,8 @@ klucz główny szyfrowania jest zapisem base64 dokładnie 32 bajtów. Puste
 wartości są traktowane jak brakujące. Przy błędnej konfiguracji proces wypisuje
 listę \emph{wszystkich} nieprawidłowych zmiennych (bez ich wartości, żeby nie
 ujawnić sekretów w logach) i kończy się kodem~1. Kontener z błędną
-konfiguracją zatrzymuje się więc od razu i widać przyczynę, zamiast działać
-i zgłaszać błędy przy pierwszym żądaniu.
+konfiguracją zatrzymuje się od razu z opisem przyczyny i nie czeka z błędem
+do pierwszego żądania.
 
 \subsubsection{Obsługa błędów}
 
@@ -60,8 +60,8 @@ Błędy przewidziane przez aplikację są klasami pochodnymi \texttt{AppError}
 (tabela~\ref{tab:bledy}). Każdy inny wyjątek zamieniany jest na odpowiedź
 500 \texttt{INTERNAL\_ERROR} z ogólnym komunikatem, a szczegóły (np. treść
 błędu bazy danych) trafiają wyłącznie do logu. Express 5 przekazuje do tego
-middleware'u również wyjątki z funkcji asynchronicznych, więc kontrolery nie
-potrzebują bloków \texttt{try/catch}.
+middleware'u również wyjątki z funkcji asynchronicznych, dlatego kontrolery
+nie potrzebują bloków \texttt{try/catch}.
 
 \begin{table}[htbp]
 \centering
@@ -195,8 +195,8 @@ GET & \texttt{/api/docs} & Dokumentacja API (Swagger UI, OpenAPI 3.0) \\
 \subsubsection{Rejestracja i logowanie}
 
 Reguły formularza rejestracji są zapisane raz, jako schemat Zod we wspólnym
-pakiecie \texttt{shared}. Ten sam schemat sprawdza dane w API i (od Etapu~7)
-w formularzu w przeglądarce, więc obie strony nie mogą się rozjechać.
+pakiecie \texttt{shared}. Ten sam schemat sprawdza dane w API i w formularzu
+w przeglądarce, dzięki czemu reguły po obu stronach są zawsze takie same.
 Wymagania to: login 3--30 znaków złożony z liter, cyfr i podkreślenia; poprawny
 adres e-mail; hasło o długości 8--128 znaków z wielką literą, cyfrą i znakiem
 specjalnym oraz identyczne potwierdzenie hasła. Komunikaty są po polsku, bo
@@ -206,7 +206,7 @@ hasła chroni serwer przed kosztownym haszowaniem bardzo długich danych.
 
 Rejestracja (\texttt{POST /api/auth/register}) najpierw sprawdza, czy login lub
 e-mail nie są zajęte. Jeśli są, zwraca 409 \texttt{CONFLICT} z listą zajętych
-pól w \texttt{details}, więc formularz może pokazać komunikat przy właściwym
+pól w \texttt{details}. Formularz pokazuje wtedy komunikat przy właściwym
 polu. Hasło jest zapisywane wyłącznie jako skrót algorytmem argon2id (64~MiB
 pamięci, 3~iteracje, losowa sól), rekomendowanym do przechowywania haseł
 \cite{owasp_passwords}. Gdy dwie rejestracje tego samego loginu wystąpią
@@ -219,8 +219,8 @@ HS256 z kluczem \texttt{JWT\_SECRET}. Token zawiera identyfikator użytkownika
 (\texttt{sub}), wystawcę (\texttt{iss}), odbiorcę (\texttt{aud}) i czas
 wygaśnięcia (\texttt{exp}, domyślnie 1~godzina). Zły login i złe hasło dają
 identyczną odpowiedź 401 \texttt{INVALID\_CREDENTIALS}. Dla nieistniejącego
-loginu serwer i tak wykonuje weryfikację argon2 na fikcyjnym skrócie, więc
-także po czasie odpowiedzi nie da się ustalić, które loginy istnieją.
+loginu serwer i tak wykonuje weryfikację argon2 na fikcyjnym skrócie. Po czasie
+odpowiedzi nie da się zatem ustalić, które loginy istnieją.
 
 \begin{figure}[htbp]
 \centering
@@ -241,11 +241,11 @@ Endpoint \texttt{/api/auth/me} dodatkowo sprawdza, czy konto nadal istnieje.
 
 Endpoint logowania ma limit nieudanych prób (biblioteka
 \texttt{express-rate-limit}): domyślnie 10 nieudanych prób z jednego adresu IP
-w ciągu 15 minut. Udane logowania nie są wliczane, więc limit nie przeszkadza
-użytkownikowi, który podaje poprawne hasło. Po przekroczeniu limitu każda
+w ciągu 15 minut. Udane logowania nie są wliczane do limitu i nie przeszkadza
+on użytkownikowi, który podaje poprawne hasło. Po przekroczeniu limitu każda
 kolejna próba, nawet z poprawnym hasłem, dostaje 429
 \texttt{TOO\_MANY\_REQUESTS} z nagłówkiem \texttt{Retry-After}, a zdarzenie jest
-zapisywane w logu. W Dockerze żądania przechodzą przez nginx, więc backend
+zapisywane w logu. W Dockerze żądania przechodzą przez nginx, dlatego backend
 ufa jednemu serwerowi pośredniczącemu (\texttt{TRUST\_PROXY=1}) i odczytuje
 adres klienta z nagłówka \texttt{X-Forwarded-For}. Bez tego wszyscy
 użytkownicy mieliby adres nginx i dzieliliby jeden limit. Liczniki są
@@ -255,20 +255,20 @@ przechowywane w pamięci procesu, co wystarcza przy jednej instancji API.
 
 Każde konto ma dokładnie jeden profil kierowcy z imieniem, nazwiskiem,
 telefonem, numerem prawa jazdy i nazwą firmy przewozowej. Profil jest tworzony
-razem z kontem, w jednej operacji zapisu do bazy danych, więc nie może
-powstać konto bez profilu. Endpoint \texttt{/api/profile} zawsze dotyczy
+razem z kontem, w jednej operacji zapisu do bazy danych, dzięki czemu nie
+może powstać konto bez profilu. Endpoint \texttt{/api/profile} zawsze dotyczy
 profilu zalogowanego użytkownika, wskazanego przez token. W adresie nie ma
-identyfikatora, więc nie da się nawet zaadresować cudzego profilu, a pola
+identyfikatora i nie da się nawet zaadresować cudzego profilu, a pola
 takie jak \texttt{userId} w treści żądania są ignorowane.
 
 \texttt{GET} zwraca profil, a \texttt{PUT} zastępuje go w całości: pole
 pominięte, puste lub \texttt{null} jest czyszczone. Formularz profilu
-(Etap~8) wysyła wszystkie pola naraz, więc taka semantyka jest prosta
+wysyła wszystkie pola naraz, a przy takim formularzu ta zasada jest prosta
 i jednoznaczna. Reguły
 walidacji znajdują się we wspólnym schemacie Zod. Imię i nazwisko mogą
 zawierać litery (także polskie), spację, myślnik i apostrof. Telefon to 9--15
 cyfr z opcjonalnym znakiem \texttt{+}; spacje, myślniki i nawiasy wpisane dla
-czytelności są usuwane, więc \texttt{+48 601-234-567} zostaje zapisany jako
+czytelności są usuwane, np. \texttt{+48 601-234-567} zostaje zapisany jako
 \texttt{+48601234567}. Numer prawa jazdy jest zamieniany na wielkie litery.
 Jeśli konto zostało usunięte, a token jest jeszcze ważny, API odpowiada 401,
 tak samo jak \texttt{/api/auth/me}.
@@ -280,14 +280,13 @@ Specyfikacja API w formacie OpenAPI 3.0 jest dostępna pod adresem
 \texttt{/api/docs}. Można w niej wykonać żądania, także z tokenem JWT
 (przycisk \emph{Authorize}). Schematy treści żądań rejestracji i logowania są
 generowane automatycznie z tych samych schematów Zod, które sprawdzają dane
-(\texttt{z.toJSONSchema}), więc dokumentacja opisuje faktycznie stosowane
-reguły. Schemat profilu jest opisany ręcznie, ponieważ jego walidacja
+(\texttt{z.toJSONSchema}). Dokumentacja opisuje zatem dokładnie te reguły,
+które są stosowane. Schemat profilu jest opisany ręcznie, ponieważ jego walidacja
 najpierw normalizuje wartości (np. usuwa spacje z numeru telefonu), a taki
 schemat po przekształceniu traci w dokumentacji ograniczenia. Limity długości
 pochodzą jednak ze wspólnej stałej \texttt{PROFILE\_LIMITS}. Test funkcjonalny sprawdza, czy specyfikacja zawiera
-dokładnie oczekiwaną listę endpointów. Dodanie endpointu wymaga więc
-uzupełnienia tej listy w teście, co przypomina o dopisaniu go do
-dokumentacji.
+oczekiwaną listę endpointów. Nowy endpoint trzeba dopisać do tej listy,
+co przypomina o uzupełnieniu dokumentacji.
 
 \subsubsection{Dokumenty}
 
@@ -302,8 +301,8 @@ pierwszych bajtach pliku (sygnaturze formatu), a nie po rozszerzeniu nazwy ani
 po nagłówku \texttt{Content-Type}, które ustala klient i które łatwo sfałszować.
 Plik wykonywalny przemianowany na \texttt{.pdf} zostaje odrzucony. Błędy pól
 formularza i pliku są zgłaszane razem w jednej odpowiedzi 400, każdy przy swoim
-polu. Middleware sprawdzający token działa przed odczytem pliku, więc anonimowe
-żądanie jest odrzucane, zanim serwer przyjmie 10~MB danych.
+polu. Token jest sprawdzany przed odczytem pliku, dlatego anonimowe żądanie
+zostaje odrzucone, zanim serwer przyjmie 10~MB danych.
 
 \paragraph{Szyfrowanie kopertowe.} Każdy plik jest szyfrowany przed zapisem
 w MinIO (rysunek~\ref{fig:upload}). Dla każdej wersji serwer losuje nowy
@@ -315,9 +314,9 @@ inicjującym i znacznikiem uwierzytelniającym. Do MinIO trafia wyłącznie
 szyfrogram. Takie rozwiązanie ma trzy zalety. Kluczem głównym nie szyfruje się
 dużych ilości danych. Wyciek pojedynczego klucza danych ujawnia tylko jeden
 plik. Wymiana klucza głównego wymaga ponownego zaszyfrowania jedynie
-32-bajtowych kluczy danych, a nie wszystkich plików. Oba szyfrowania mają jako
-dane uwierzytelniane (AAD) klucz obiektu w MinIO. Szyfrogram lub klucz danych
-skopiowany do innej wersji nie da się więc odszyfrować.
+32-bajtowych kluczy danych, bez przepisywania samych plików. Oba szyfrowania
+mają jako dane uwierzytelniane (AAD) klucz obiektu w MinIO. Szyfrogramu ani
+klucza danych skopiowanego do innej wersji nie da się odszyfrować.
 
 \begin{figure}[htbp]
 \centering
@@ -351,14 +350,14 @@ i w UTF-8 (\texttt{filename*}).
 \paragraph{Wersjonowanie.} Endpoint \texttt{POST /api/documents/:id/versions}
 dodaje nową wersję pliku. Numer wersji jest zwiększany w bazie danych
 (\texttt{current\_version = current\_version + 1}) w tej samej transakcji,
-w której zapisywana jest wersja. Dwa jednoczesne przesłania dostają więc
-różne numery, a unikalny indeks \texttt{(document\_id, version\_no)} jest
+w której zapisywana jest wersja. Dwa jednoczesne przesłania dostają przez
+to różne numery, a unikalny indeks \texttt{(document\_id, version\_no)} jest
 dodatkowym zabezpieczeniem. Wcześniejsze wersje pozostają dostępne do
 pobrania, każda zaszyfrowana własnym kluczem.
 
 \paragraph{Statusy i historia zmian.} Dozwolone zmiany statusu przedstawia
-rysunek~\ref{fig:statusy}. Reguły są zapisane w pakiecie \texttt{shared}, więc
-w interfejsie będzie można pokazać tylko dozwolone przyciski. Niedozwolona
+rysunek~\ref{fig:statusy}. Reguły są zapisane w pakiecie \texttt{shared},
+z którego korzysta też interfejs, pokazujący tylko dozwolone przyciski. Niedozwolona
 zmiana daje 409 \texttt{INVALID\_STATUS\_TRANSITION} z polskim komunikatem,
 np. ,,Nie można zmienić statusu z Roboczy na Zaakceptowany'', a żadne
 pole dokumentu się nie zmienia. Dokument zarchiwizowany jest tylko do
@@ -384,16 +383,16 @@ wiersze, historia i zaszyfrowane pliki zostają.
 
 \paragraph{Autoryzacja.} Każde zapytanie repozytorium dokumentów zawiera
 warunek na właściciela i pomija dokumenty usunięte. Cudzy dokument jest
-nieodróżnialny od nieistniejącego: każda operacja na nim zwraca 404, więc
+nieodróżnialny od nieistniejącego. Każda operacja na nim zwraca 404, przez co
 nie da się nawet sprawdzić, czy dany identyfikator istnieje. Identyfikatory
-są losowymi UUID, więc nie da się ich zgadywać po kolei.
+są losowymi UUID i nie można ich odgadywać po kolei.
 
 \subsubsection{Role i panel biura}
 \label{sec:role}
 
 Konto ma jedną z dwóch ról: \emph{kierowca} (\texttt{DRIVER}) albo
 \emph{biuro} (\texttt{OFFICE}). Rejestracja publiczna zawsze tworzy konto
-kierowcy, więc nikt nie może sam nadać sobie uprawnień biura. Konto biura
+kierowcy, dlatego nikt nie może sam nadać sobie uprawnień biura. Konto biura
 powstaje z konfiguracji: jeśli ustawiono zmienne \texttt{OFFICE\_USERNAME}
 i \texttt{OFFICE\_PASSWORD}, serwer przy starcie zakłada to konto albo, gdy
 już istnieje, ustawia hasło z konfiguracji. Login i hasło podlegają tym samym
@@ -402,8 +401,8 @@ login należy już do konta kierowcy, serwer zapisuje błąd w logu i nie zmieni
 tego konta w konto biura, bo taki login mógł zarejestrować ktokolwiek.
 
 Endpointy są rozdzielone według roli. Pośrednik \texttt{requireRole} działa po
-sprawdzeniu tokenu i przy każdym żądaniu odczytuje rolę z bazy danych, a nie
-z tokenu, więc zmiana roli albo usunięcie konta działa od razu. Endpointy
+sprawdzeniu tokenu i przy każdym żądaniu odczytuje rolę z bazy danych (nie
+z tokenu). Zmiana roli albo usunięcie konta działa dzięki temu od razu. Endpointy
 \texttt{/api/documents} i \texttt{/api/profile} są tylko dla kierowców,
 a \texttt{/api/office} tylko dla biura. Konto innej roli dostaje odpowiedź
 403 \texttt{FORBIDDEN}.
@@ -421,9 +420,9 @@ edytować ani usuwać dokumentów. Decyzję zapisuje
 \texttt{POST /api/office/documents/:id/review} z polem \texttt{decision}
 (\texttt{ACCEPTED} albo \texttt{REJECTED}) i komentarzem, który przy
 odrzuceniu jest wymagany. Komentarz trafia do historii dokumentu razem
-z autorem zmiany, więc kierowca widzi, kto i dlaczego odrzucił dokument.
+z autorem zmiany i kierowca widzi, kto i dlaczego odrzucił dokument.
 Zmiana statusu jest warunkowa: aktualizacja w bazie ma warunek
 ,,status nadal \texttt{SUBMITTED}'' i odbywa się w transakcji z wpisem
-historii. Z dwóch jednoczesnych decyzji (np. dwóch pracowników biura) wygrywa
-więc dokładnie jedna, a druga dostaje 409 \texttt{INVALID\_STATUS\_TRANSITION}.
+historii. Z dwóch jednoczesnych decyzji (np. dwóch pracowników biura)
+zapisuje się tylko jedna, a druga dostaje 409 \texttt{INVALID\_STATUS\_TRANSITION}.
 

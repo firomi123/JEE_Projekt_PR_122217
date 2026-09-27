@@ -39,9 +39,8 @@ Wymagania niefunkcjonalne zrealizowano następująco:
 
 \subsection{Napotkane problemy i wnioski}
 
-Najcenniejszym wnioskiem z projektu jest skuteczność testów funkcjonalnych.
-Wykryły one kilka błędów, których nie ujawniłyby testy jednostkowe ani
-pobieżne ręczne sprawdzenie:
+Testy funkcjonalne wykryły kilka błędów, których nie ujawniłyby testy
+jednostkowe ani pobieżne ręczne sprawdzenie:
 \begin{itemize}
   \item po odświeżeniu strony pierwsze zapytania wysyłane były bez tokenu,
         bo efekty komponentów potomnych w React wykonują się przed efektem
@@ -55,25 +54,23 @@ pobieżne ręczne sprawdzenie:
   \item metryki HTTP miały błędne etykiety tras, bo Express przywraca
         ścieżkę bazową routera przed zakończeniem odpowiedzi;
   \item pomiar opóźnienia pętli zdarzeń tracił próbkę po wyzerowaniu
-        histogramu, więc zawieszenie procesu nie byłoby wykryte;
+        histogramu i zawieszenie procesu mogło pozostać niewykryte;
   \item po odrzuceniu dokumentu przez biuro i ponownym przesłaniu go przez
         kierowcę biuro nadal widziało stary status, bo pamięć podręczna
         uznawała dane za aktualne przez 30~sekund;
   \item filtr statusu wybrany w ciągu 300~ms od wpisania tekstu w wyszukiwarkę
         był cofany przez opóźnione wyszukiwanie.
 \end{itemize}
-Każdy z tych błędów najpierw odtworzono testem, który nie przechodził,
-a dopiero potem poprawiono kod. Testy pozostają w zestawie i chronią przed
-powrotem błędu.
+Do każdego z tych błędów napisano test odtwarzający go przed poprawką kodu.
+Testy pozostają w zestawie i chronią przed powrotem błędu.
 
-Drugi wniosek dotyczy środowiska testowego. Testy w przeglądarce okazały się
-wrażliwe na obciążenie komputera: haszowanie haseł argon2 i przetwarzanie
+Testy w przeglądarce okazały się wrażliwe na obciążenie komputera: haszowanie haseł argon2 i przetwarzanie
 zdjęć 12~Mpx konkurowały o procesor z przeglądarkami. Stabilność zapewniło
 uruchamianie testów na zbudowanej aplikacji (zamiast serwera deweloperskiego)
-i kolejne, a nie równoległe, wykonywanie scenariuszy.
+i wykonywanie scenariuszy po kolei.
 
-Trzeci wniosek dotyczy monitoringu: sama konfiguracja kontroli stanu nie
-gwarantuje samonaprawy. Test chaosu pokazał, że Docker nie restartuje
+Sama konfiguracja kontroli stanu nie gwarantuje samonaprawy. Test chaosu
+pokazał, że Docker nie restartuje
 kontenera zatrzymanego poleceniem \texttt{docker kill}, bo traktuje je jak
 ręczne zatrzymanie, a zawieszonego, ale działającego procesu nie restartuje
 wcale. Dopiero dodatkowy kontener \emph{autoheal} i test z rzeczywistym

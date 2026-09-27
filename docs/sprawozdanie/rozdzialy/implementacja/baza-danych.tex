@@ -4,8 +4,8 @@
 Dane aplikacji są przechowywane w bazie PostgreSQL 16,
 a dostęp do nich zapewnia Prisma ORM w wersji 7. Schemat bazy
 jest zdefiniowany w jednym pliku \path{backend/prisma/schema.prisma}.
-Na jego podstawie Prisma generuje klienta z typami TypeScript, więc zapytania
-do nieistniejących kolumn i błędy typów wykrywa już kompilator. Prisma 7 nie
+Na jego podstawie Prisma generuje klienta z typami TypeScript, dzięki czemu
+zapytania do nieistniejących kolumn i błędy typów wykrywa już kompilator. Prisma 7 nie
 korzysta z osobnego silnika zapytań; łączy się z bazą przez sterownik
 \texttt{pg} (adapter \texttt{@prisma/adapter-pg}), z limitem 5~sekund na
 nawiązanie połączenia.
@@ -25,7 +25,7 @@ poleceń Prisma. Obraz produkcyjny backendu go nie zawiera.
 \subsubsection{Model danych}
 
 Pierwsza migracja (\texttt{init}) tworzy tabelę \texttt{users} z kontami
-użytkowników (tabela~\ref{tab:users}). Identyfikatory są typu UUID, więc nie
+użytkowników (tabela~\ref{tab:users}). Identyfikatory są typu UUID i nie
 da się ich odgadnąć, a to ma znaczenie przy adresach dokumentów w API.
 
 \begin{table}[htbp]
@@ -62,7 +62,7 @@ Relacja z tabelą \texttt{users} jest jeden do jednego
 konto ma najwyżej jeden profil. Klauzula \texttt{ON DELETE CASCADE} usuwa profil
 razem z kontem. Wszystkie dane kierowcy są opcjonalne, bo profil powstaje
 automatycznie przy rejestracji, zanim kierowca go wypełni. Długości kolumn są
-równe limitom w schemacie walidacji, więc poprawne dane zawsze mieszczą się
+równe limitom w schemacie walidacji i poprawne dane zawsze mieszczą się
 w bazie.
 
 Migracja zawiera też ręcznie dopisaną instrukcję, która tworzy pusty profil dla
@@ -136,7 +136,7 @@ i historii zmian oraz typy wyliczeniowe \texttt{DocumentType},
         polem oraz starą i nową wartością.
 \end{itemize}
 
-Czwarta migracja (\texttt{office\_role}, Etap~15) dodaje typ wyliczeniowy
+Czwarta migracja (\texttt{office\_role}) dodaje typ wyliczeniowy
 \texttt{UserRole}, kolumnę \texttt{role} w tabeli \texttt{users} z wartością
 domyślną \texttt{DRIVER} (istniejące konta stały się kontami kierowców bez
 przepisywania danych) oraz kolumnę \texttt{comment} w tabeli

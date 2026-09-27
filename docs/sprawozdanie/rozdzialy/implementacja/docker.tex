@@ -54,8 +54,8 @@ około 250~MB, a obraz frontendu około 83~MB.
 Plik \texttt{backend/Dockerfile} ma jeszcze trzeci etap, \emph{migrate}. Powstaje
 on z etapu \emph{build}, który zawiera narzędzie wiersza poleceń Prisma, i służy
 jednorazowej usłudze \texttt{migrate} do stosowania migracji bazy danych
-(podrozdział~\ref{sec:baza-danych}). Narzędzie to jest zależnością deweloperską,
-więc nie trafia do obrazu produkcyjnego.
+(podrozdział~\ref{sec:baza-danych}). Narzędzie to jest zależnością deweloperską
+i nie trafia do obrazu produkcyjnego.
 
 Oba obrazy działają na koncie użytkownika bez uprawnień administratora:
 backend jako użytkownik \texttt{node} (UID 1000), a frontend na obrazie
@@ -63,8 +63,8 @@ backend jako użytkownik \texttt{node} (UID 1000), a frontend na obrazie
 nasłuchując na nieuprzywilejowanym porcie 8080. Backend jest uruchamiany
 z opcją \texttt{init: true}, która jako proces numer 1 umieszcza w kontenerze
 program \texttt{tini}. Przekazuje on procesowi Node.js sygnał \texttt{SIGTERM},
-więc \texttt{docker compose stop} kończy kontener od razu, a nie dopiero
-po 10-sekundowym limicie.
+dzięki czemu \texttt{docker compose stop} kończy kontener od razu, bez
+czekania na 10-sekundowy limit.
 
 \subsubsection{Serwer nginx}
 
@@ -77,7 +77,7 @@ rozwiązywany przez wbudowany serwer DNS Dockera przy każdym żądaniu (dyrekty
 \texttt{resolver} i zmienna w \texttt{proxy\_pass}). Po restarcie kontenera
 backendu, który może dostać nowy adres IP, nginx od razu kieruje ruch pod
 właściwy adres; sprawdzono to, restartując backend przy działającym systemie.
-Pliki z katalogu \texttt{/assets/} mają w nazwie skrót zawartości, więc
+Pliki z katalogu \texttt{/assets/} mają w nazwie skrót zawartości, dlatego
 przeglądarka może je przechowywać przez rok, natomiast \texttt{index.html}
 nie jest zapisywany w pamięci podręcznej.
 
@@ -123,7 +123,7 @@ wolumenach: \texttt{pgdata} (baza danych), \texttt{miniodata} (pliki
 dokumentów), \texttt{promdata} (szeregi czasowe metryk) i \texttt{grafanadata}.
 Polecenie \texttt{docker compose down} usuwa kontenery, ale zachowuje
 wolumeny. Porty bazy danych, MinIO i Prometheusa są wystawione tylko na adresie
-\texttt{127.0.0.1}, więc są dostępne wyłącznie z komputera, na którym działa
+\texttt{127.0.0.1} i są dostępne wyłącznie z komputera, na którym działa
 Docker. Służą programiście do uruchamiania backendu poza kontenerem
 (\texttt{npm run dev}).
 
@@ -147,9 +147,9 @@ bez konta biura.
 Plik \texttt{docker-compose.test.yml} definiuje osobny projekt
 (\texttt{driver-docs-test}) z bazą PostgreSQL i magazynem MinIO na potrzeby
 testów funkcjonalnych API. Dane tych kontenerów są przechowywane w pamięci
-(\texttt{tmpfs}), więc każde uruchomienie zaczyna się od pustego stanu, a testy
+(\texttt{tmpfs}). Każde uruchomienie zaczyna się od pustego stanu, a testy
 nie mogą uszkodzić danych środowiska deweloperskiego. Kontenery testowe
-używają innych portów (5433 i 9100), więc mogą działać jednocześnie z głównym
+używają innych portów (5433 i 9100) i mogą działać jednocześnie z głównym
 systemem.
 
 \subsubsection{Napotkany problem: obrazy MinIO}
@@ -157,7 +157,7 @@ systemem.
 W 2025 roku firma MinIO przestała publikować obrazy wersji Community
 w serwisie Docker Hub. W czasie realizacji projektu repozytorium
 \texttt{minio/minio} nie było tam już dostępne i próba pobrania obrazu kończyła
-się błędem. Projekt korzysta więc z rejestru \texttt{quay.io} z przypiętym
+się błędem. Projekt korzysta dlatego z rejestru \texttt{quay.io} z przypiętym
 wydaniem \texttt{RELEASE.2025-09-07T16-13-09Z}. Wniosek z tej
 sytuacji: wersje obrazów należy przypinać. Obrazy MinIO, Prometheusa
 i Grafany mają przypiętą dokładną wersję, a obrazy bazowe (\texttt{node:22},

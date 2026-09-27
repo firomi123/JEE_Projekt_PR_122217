@@ -4,7 +4,7 @@
 Frontend to aplikacja jednostronicowa (SPA) napisana w React~19 i TypeScripcie,
 budowana narzędziem Vite. W Dockerze gotowe pliki
 serwuje nginx (podrozdział~\ref{sec:docker}). Aplikacja komunikuje się z API
-pod tym samym adresem (\texttt{/api}), więc nie wymaga konfiguracji CORS.
+pod tym samym adresem (\texttt{/api}) i nie wymaga konfiguracji CORS.
 
 \subsubsection{Struktura aplikacji}
 
@@ -17,7 +17,7 @@ pod tym samym adresem (\texttt{/api}), więc nie wymaga konfiguracji CORS.
   \item \texttt{pages/}: ekrany aplikacji; \texttt{layout/}: układ stron;
         \texttt{components/}: wspólne elementy (pole formularza, komunikat);
   \item \texttt{i18n/texts.ts}: wszystkie teksty interfejsu po polsku w jednym
-        module, więc komponenty nie zawierają napisów na stałe.
+        module; komponenty nie zawierają napisów na stałe.
 \end{itemize}
 
 Nawigacją zarządza React Router, a adresy są po polsku (\texttt{/logowanie},
@@ -50,13 +50,13 @@ ekranów logowania i rejestracji osobie już zalogowanej.
 
 Formularze obsługuje biblioteka react-hook-form ze schematami Zod
 z pakietu \texttt{shared}. Te same reguły i te same polskie komunikaty
-obowiązują więc w przeglądarce i w API. Niepoprawny formularz nie jest nawet
+obowiązują w przeglądarce i w API. Niepoprawny formularz nie jest nawet
 wysyłany, a błędy pojawiają się przy polach. Błędy, które zna tylko serwer
 (np. zajęty login, odpowiedź 409), są przypisywane do właściwych pól na
 podstawie \texttt{details} z odpowiedzi API. Po rejestracji aplikacja
 automatycznie loguje użytkownika. Pola formularza są opisane etykietami,
 a pole z błędem ma atrybut \texttt{aria-invalid} i powiązany komunikat
-(\texttt{aria-describedby}), więc błąd odczytują też czytniki ekranu.
+(\texttt{aria-describedby}), dzięki czemu błąd odczytują też czytniki ekranu.
 
 \subsubsection{Układ dla urządzeń mobilnych}
 
@@ -71,15 +71,15 @@ o szerokości od 768~pikseli nawigacja przechodzi pod górny pasek.
 \subsubsection{Dokumenty i profil}
 
 \paragraph{Lista dokumentów.} Ekran startowy pokazuje dokumenty użytkownika
-jako karty z tytułem, kolorowym znacznikiem statusu (kolor i napis, więc
-informacja nie zależy tylko od koloru), typem, numerem, numerem wersji i datą
+jako karty z tytułem, kolorowym znacznikiem statusu (kolor i napis, żeby
+informacja nie zależała tylko od koloru), typem, numerem, numerem wersji i datą
 ostatniej zmiany. Nad listą znajdują się filtry typu i statusu oraz pole
 wyszukiwania w tytule i numerze. Wartości filtrów są zapisane w adresie
-strony (np. \texttt{/?type=WZ\&status=SUBMITTED}), więc odświeżenie strony,
-przycisk ,,wstecz'' i udostępniony odnośnik zachowują widok. Zapytanie
-wyszukiwania jest wysyłane 300~ms po ostatnim naciśnięciu klawisza, a nie po
-każdym znaku. Przy przełączaniu stron listy poprzednie wyniki pozostają
-widoczne do czasu wczytania nowych, więc ekran nie miga.
+strony (np. \texttt{/?type=WZ\&status=SUBMITTED}). Odświeżenie strony,
+przycisk ,,wstecz'' i udostępniony odnośnik zachowują dzięki temu widok.
+Zapytanie wyszukiwania jest wysyłane 300~ms po ostatnim naciśnięciu klawisza,
+nie po każdym znaku. Przy przełączaniu stron listy poprzednie wyniki pozostają
+widoczne do czasu wczytania nowych i ekran nie miga.
 
 \paragraph{Dodawanie dokumentu.} Formularz zawiera typ, tytuł, opcjonalny numer
 i uwagi oraz plik. Przeglądarka od razu sprawdza rozmiar i zadeklarowany typ
@@ -91,15 +91,15 @@ w przeglądarce, ale komunikat serwera pojawi się przy polu pliku.
 \paragraph{Szczegóły dokumentu.} Ekran szczegółów pokazuje podgląd bieżącej
 wersji, przyciski zmiany statusu, formularz edycji tytułu i numeru, listę
 wersji z przyciskiem pobierania, formularz nowej wersji, historię zmian
-i przycisk usunięcia. Plik jest pobierany z nagłówkiem \texttt{Authorization},
-więc nie można go podać bezpośrednio w \texttt{<img src>}. Aplikacja pobiera
+i przycisk usunięcia. Plik wymaga nagłówka \texttt{Authorization}, dlatego
+nie można go podać bezpośrednio w \texttt{<img src>}. Aplikacja pobiera
 go jako obiekt \texttt{Blob} i wyświetla przez tymczasowy adres
 \texttt{blob:}, który zwalnia, gdy przestaje być potrzebny. Zdjęcia są
 pokazywane bezpośrednio. Dla plików PDF wyświetlana jest karta z przyciskiem
 ,,Otwórz PDF'', bo większość przeglądarek mobilnych nie wyświetla PDF
 osadzonego w stronie. Przyciski zmiany statusu powstają z tych samych reguł
-przejść, które sprawdza API (pakiet \texttt{shared}), więc interfejs pokazuje
-tylko dozwolone zmiany. Zmiana statusu i usunięcie wymagają potwierdzenia.
+przejść, które sprawdza API (pakiet \texttt{shared}). Interfejs pokazuje
+przez to tylko dozwolone zmiany. Zmiana statusu i usunięcie wymagają potwierdzenia.
 Dokument zarchiwizowany jest wyświetlany tylko do odczytu. Po każdej zmianie
 dane dokumentu i listy są odświeżane automatycznie (unieważnienie pamięci
 podręcznej TanStack Query).
@@ -131,7 +131,7 @@ i preferowaną rozdzielczością Full HD, a następnie podłącza go do elementu
 \texttt{<video>}. Duży okrągły przycisk migawki kopiuje bieżącą klatkę na
 \texttt{canvas} i zapisuje ją jako JPEG w pełnej rozdzielczości aparatu;
 kompresja następuje dopiero po kadrowaniu. Przy wyjściu z widoku aparatu
-wszystkie ścieżki strumienia są zatrzymywane, więc aparat (i jego lampka)
+wszystkie ścieżki strumienia są zatrzymywane i aparat (razem z jego lampką)
 wyłącza się od razu. \texttt{getUserMedia} działa tylko w bezpiecznym
 kontekście (HTTPS albo \texttt{localhost}). Gdy funkcja jest niedostępna,
 użytkownik odmówił dostępu albo urządzenie nie ma aparatu, aplikacja wyjaśnia
@@ -199,8 +199,8 @@ może ją przyciąć do kształtu ikon systemu. Ikony są generowane z jednego
 pliku SVG skryptem, który renderuje je w przeglądarce Chromium.
 
 \paragraph{Service worker.} Service worker przechowuje w pamięci podręcznej
-wyłącznie pliki aplikacji (HTML, JavaScript, CSS, ikony), więc aplikacja
-uruchamia się także bez połączenia z siecią. Adresy aplikacji otwierane bez
+wyłącznie pliki aplikacji (HTML, JavaScript, CSS, ikony). Wystarczają one,
+żeby aplikacja uruchomiła się także bez połączenia z siecią. Adresy aplikacji otwierane bez
 sieci są obsługiwane przez zapisany \texttt{index.html}, a routingiem zajmuje
 się React Router. Żądania do API (\texttt{/api/*}), w tym pliki dokumentów,
 mają strategię \emph{NetworkOnly}: nie są nigdy zapisywane na urządzeniu,
@@ -224,7 +224,7 @@ prawdziwym telefonie z Androidem (rysunek~\ref{fig:telefon}).
 \subsubsection{Panel biura}
 \label{sec:panel-biura}
 
-Panel biura (Etap~15) jest częścią tej samej aplikacji, dostępną pod adresem
+Panel biura jest częścią tej samej aplikacji, dostępną pod adresem
 \texttt{/biuro} dla kont z rolą biura (podrozdział~\ref{sec:role}). Jest
 przeznaczony głównie do pracy w przeglądarce na komputerze: szerszy układ,
 tabela dokumentów i dwie kolumny na ekranie dokumentu. Na telefonie tabela
@@ -252,14 +252,14 @@ pokazuje, kto z biura podjął decyzję. Kierowca może dodać nową wersję
 \paragraph{Rozdzielenie ról.} Strażnik tras \texttt{RequireRole} kieruje każdą
 rolę do jej części aplikacji. Biuro po zalogowaniu trafia na \texttt{/biuro},
 a kierowca próbujący otworzyć \texttt{/biuro} wraca na swoją listę. Zapisana
-sesja sprzed wprowadzenia ról (bez poprawnej roli) jest odrzucana, więc
-użytkownik loguje się ponownie i dostaje aktualne dane konta.
+sesja sprzed wprowadzenia ról (bez poprawnej roli) jest odrzucana.
+Użytkownik loguje się wtedy ponownie i dostaje aktualne dane konta.
 
 \paragraph{Aktualność danych.} Biblioteka TanStack Query domyślnie uznawała
 pobrane dane za aktualne przez 30~sekund. Dopóki dokument zmieniał tylko jego
 właściciel, to wystarczało, bo jego własne zmiany odświeżały pamięć
-podręczną. Teraz zmieniają go dwie strony, więc listy i szczegóły dokumentów
-są pobierane na nowo przy każdym wejściu na ekran. Błąd, który wynikał
+podręczną. Teraz zmieniają go dwie strony, dlatego listy i szczegóły
+dokumentów są pobierane na nowo przy każdym wejściu na ekran. Błąd, który wynikał
 z poprzedniego ustawienia, wykrył test E2E (podrozdział~\ref{sec:testy}).
 
 Rysunek~\ref{fig:biuro} pokazuje panel biura w przeglądarce na komputerze
@@ -287,8 +287,8 @@ Rysunek~\ref{fig:biuro} pokazuje panel biura w przeglądarce na komputerze
 Rysunki~\ref{fig:zrzuty-1} i~\ref{fig:zrzuty-2} pokazują ekrany części
 kierowcy na prawdziwym telefonie (Samsung Galaxy A26, Chrome). Zrzuty
 wykonano poleceniem \texttt{adb exec-out screencap} na jednorazowej kopii
-stosu Docker z danymi demonstracyjnymi (konto \texttt{jan\_kowalski}),
-więc nie zawierają prawdziwych danych. Fotografowany dokument to fikcyjny
+stosu Docker z danymi demonstracyjnymi (konto \texttt{jan\_kowalski})
+i nie zawierają prawdziwych danych. Fotografowany dokument to fikcyjny
 list przewozowy CMR wyświetlony na monitorze komputera.
 
 \begin{figure}[htbp]
