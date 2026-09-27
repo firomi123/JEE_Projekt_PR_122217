@@ -126,7 +126,7 @@ Zawieszenie procesu mogło pozostać niezauważone & funkcja \texttt{monitorEven
 \hline
 Biuro widziało stary status dokumentu ponownie przesłanego przez kierowcę & dane z pamięci podręcznej były uznawane za aktualne przez 30~s; listy i szczegóły dokumentów są pobierane przy każdym wejściu na ekran \\
 \hline
-Status wybrany zaraz po wpisaniu wyszukiwanego tekstu był cofany & opóźnione o 300~ms wyszukiwanie korzystało ze starego stanu filtrów; poprawka używa najnowszego stanu (\texttt{useEffectEvent}) \\
+Status wybrany zaraz po wpisaniu wyszukiwanego tekstu był cofany & opóźnione o 300~ms wyszukiwanie korzystało ze starego stanu filtrów, bo React Router renderuje nawigację asynchronicznie; poprawka buduje adres z bieżącego URL i zatwierdza zmianę synchronicznie (\texttt{flushSync}), a test celowo blokuje wątek przeglądarki, żeby oba zdarzenia zawsze nastąpiły w tej samej chwili \\
 \hline
 \end{tabular}
 \zrodlo{opracowanie własne}
@@ -267,5 +267,13 @@ zadań: kontroli kodu (lint, typy, budowanie, konfiguracja monitoringu), testów
 jednostkowych i funkcjonalnych z pokryciem, testów Playwright z pokryciem oraz
 zbudowania i uruchomienia całego stosu Docker z oczekiwaniem na stan
 \emph{healthy}. Raporty trafiają do artefaktów. Poprawność pliku sprawdzono
-narzędziem \texttt{actionlint}. Potok nie był jeszcze uruchomiony, bo
-repozytorium nie ma zdalnej kopii w serwisie GitHub.
+narzędziem \texttt{actionlint}.
+
+Pierwsze przebiegi potoku na GitHubie wykryły trzy problemy niewidoczne na
+komputerze autora, gdzie obrazy Docker i zbudowane pakiety były już na
+dysku: obrazy MinIO z rejestru \texttt{quay.io} wymagały logowania
+(rozdział~\ref{sec:docker}), Playwright uruchamiał backend przed
+zbudowaniem pakietu \texttt{shared} i migracją bazy (przygotowanie
+przeniesiono do polecenia startowego serwera), a opisany wyżej wyścig filtrów
+pojawiał się pod większym obciążeniem. Po poprawkach wszystkie cztery zadania
+kończą się powodzeniem.
