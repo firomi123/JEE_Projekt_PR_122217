@@ -363,6 +363,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      # Soft limit for the Go garbage collector, below mem_limit (see there).
+      GOMEMLIMIT: 600MiB
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/app.json
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -371,7 +373,10 @@ services:
     ports:
       - '${GRAFANA_PORT:-3001}:3000'
     networks: [monitoring]
-    mem_limit: 256m
+    # 256 MiB was not enough: Grafana 13 was OOM-killed while rendering the
+    # dashboards (~430 MB of live heap afterwards). GOMEMLIMIT (environment above)
+    # makes the Go GC collect before the container limit is reached.
+    mem_limit: 768m
     cpus: 0.5
     healthcheck:
       test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:3000/api/health']
