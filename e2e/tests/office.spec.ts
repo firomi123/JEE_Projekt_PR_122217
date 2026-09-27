@@ -107,6 +107,9 @@ test.describe('office panel in a desktop browser', () => {
   test('keeps a filter chosen while the search text is still being applied', async ({ page }) => {
     await loginAsOffice(page);
     await page.getByRole('link', { name: 'Wszystkie dokumenty' }).click();
+    // Both views have the same search box: typing before the new view is shown would
+    // go into the previous one (the new view starts with an empty box).
+    await expect(page.getByRole('heading', { name: 'Wszystkie dokumenty' })).toBeVisible();
 
     await searchAndChooseStatusAtOnce(page, 'nieistniejący', 'ACCEPTED');
 
