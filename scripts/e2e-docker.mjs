@@ -8,17 +8,22 @@
  * and its own networks; host ports are moved so it can run next to the real stack.
  * Only the application services are started (frontend and its dependencies: backend,
  * migrate, postgres, minio, minio-init) – monitoring is not needed for the tests.
- * The copy is removed with its volumes afterwards, also when the command fails.
+ * Every run starts from empty data (leftovers of a previous run are removed first).
+ * When the command succeeds, the copy is removed with its volumes. When it fails,
+ * the copy is kept running for inspection and the logs of its containers are saved to
+ * `e2e/test-results/docker-stack.log` (Playwright's own report is in
+ * `e2e/playwright-report/`); in CI (`CI` set) it is removed anyway.
  *
  * Usage:
  *   node scripts/e2e-docker.mjs                 – Playwright suite (npm run test:e2e:docker)
  *   node scripts/e2e-docker.mjs -- <command…>   – any command, e.g. the screenshot script
  * The command gets E2E_BASE_URL (the copy's frontend), E2E_DISPOSABLE_TARGET=1 and the
  * office login as E2E_OFFICE_USERNAME / E2E_OFFICE_PASSWORD.
- * Set E2E_KEEP_STACK=1 to leave the copy running for inspection.
+ * E2E_KEEP_STACK=1 keeps the copy also after a successful run; E2E_KEEP_STACK=0 removes
+ * it also after a failure.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,6 +79,8 @@ const compose = (...args) => run('docker', ['compose', '-p', PROJECT, ...args], 
 const separator = process.argv.indexOf('--');
 const custom = separator >= 0 ? process.argv.slice(separator + 1) : [];
 
+// Leftovers of a previous (failed, kept) run must not leak into this one.
+compose('down', '-v', '--remove-orphans');
 console.log(`Starting a disposable stack "${PROJECT}" at ${baseUrl} …`);
 let exitCode = compose('up', '-d', '--build', '--wait', 'frontend');
 if (exitCode === 0) {
@@ -92,9 +99,27 @@ if (exitCode === 0) {
   console.error('The disposable stack did not become healthy.');
 }
 
-if (process.env.E2E_KEEP_STACK === '1') {
+const keep =
+  process.env.E2E_KEEP_STACK === '1' ||
+  (exitCode !== 0 && process.env.E2E_KEEP_STACK !== '0' && !process.env.CI);
+
+if (exitCode !== 0) {
+  const logs = spawnSync('docker', ['compose', '-p', PROJECT, 'logs', '--no-color'], {
+    cwd: root,
+    env: composeEnv,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const logFile = resolve(root, 'e2e', 'test-results', 'docker-stack.log');
+  mkdirSync(dirname(logFile), { recursive: true });
+  writeFileSync(logFile, `${logs.stdout ?? ''}${logs.stderr ?? ''}`);
+  console.error(`Failed. Logs of the disposable stack: ${logFile}`);
+}
+
+if (keep) {
   console.log(
-    `Leaving "${PROJECT}" running (remove it with: docker compose -p ${PROJECT} down -v).`,
+    `Leaving "${PROJECT}" running at ${baseUrl} (database on 127.0.0.1:${PORTS.POSTGRES_PORT}). ` +
+      `Remove it with: docker compose -p ${PROJECT} down -v (the next run removes it too).`,
   );
 } else {
   compose('down', '-v', '--remove-orphans');
