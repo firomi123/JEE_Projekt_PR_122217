@@ -246,7 +246,7 @@ Pakiet \texttt{shared} (jednostkowe, 109 testów) & 96,8\,\% & 90,3\,\% & 100\,\
 \hline
 Frontend (Playwright, 36 scenariuszy) & 94,1\,\% & 81,9\,\% & 89,9\,\% & 92,0\,\% \\
 \hline
-Frontend (tylko jednostkowe, 62 testy) & 12,5\,\% & 14,5\,\% & 10,0\,\% & 12,8\,\% \\
+Frontend (tylko jednostkowe, 65 testów) & 13,8\,\% & 15,4\,\% & 10,4\,\% & 13,8\,\% \\
 \hline
 \end{tabular}
 \zrodlo{opracowanie własne}
@@ -258,6 +258,45 @@ formatowanie, opis historii), a komponenty są sprawdzane w przeglądarce, tak
 jak używa ich kierowca. Z pomiaru backendu wyłączono wygenerowany kod klienta
 Prisma oraz plik startowy \texttt{server.ts}, który sprawdza osobny test
 uruchamiający prawdziwy proces serwera.
+
+\subsubsection{Wyniki uruchomienia testów}
+
+Rysunki~\ref{fig:testy-backend}--\ref{fig:testy-e2e} pokazują wyniki
+ostatniego uruchomienia wszystkich zestawów testów w terminalu, na
+infrastrukturze testowej (\texttt{npm run test:infra:up}). Wszystkie testy
+kończą się powodzeniem: 189 testów backendu, 109 testów pakietu
+\texttt{shared}, 65 testów jednostkowych frontendu i 36 scenariuszy E2E.
+Ostrzeżenie \texttt{DeprecationWarning} widoczne w wynikach pochodzi z biblioteki
+\texttt{@prisma/adapter-pg} (kilka zapytań w jednej transakcji) i nie jest
+błędem projektu. Zniknie po aktualizacji Prismy, której wersja jest celowo
+przypięta.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{zrzuty/testy-backend.png}
+\caption{Testy backendu (funkcjonalne API i jednostkowe)}
+\label{fig:testy-backend}
+\zrodlo{opracowanie własne (zrzut terminala)}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{zrzuty/testy-shared.png}
+
+\vspace{0.3cm}
+\includegraphics[width=\textwidth]{zrzuty/testy-frontend.png}
+\caption{Testy jednostkowe pakietu \texttt{shared} i frontendu}
+\label{fig:testy-jednostkowe}
+\zrodlo{opracowanie własne (zrzut terminala)}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{zrzuty/testy-e2e.png}
+\caption{Testy E2E w przeglądarce (Playwright, emulacja telefonu Pixel~7)}
+\label{fig:testy-e2e}
+\zrodlo{opracowanie własne (zrzut terminala)}
+\end{figure}
 
 \subsubsection{Ciągła integracja}
 
@@ -276,4 +315,13 @@ dysku: obrazy MinIO z rejestru \texttt{quay.io} wymagały logowania
 zbudowaniem pakietu \texttt{shared} i migracją bazy (przygotowanie
 przeniesiono do polecenia startowego serwera), a opisany wyżej wyścig filtrów
 pojawiał się pod większym obciążeniem. Po poprawkach wszystkie cztery zadania
-kończą się powodzeniem.
+kończą się powodzeniem (rysunek~\ref{fig:ci}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{zrzuty/testy-ci.png}
+\caption{Przebieg potoku CI w serwisie GitHub (\texttt{gh run view})}
+\label{fig:ci}
+\zrodlo{opracowanie własne (zrzut terminala)}
+\end{figure}
+

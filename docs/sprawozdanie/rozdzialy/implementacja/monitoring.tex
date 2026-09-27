@@ -54,6 +54,45 @@ nieudane logowania, czas zapytań, opóźnienie pętli zdarzeń, pamięć),
 ,,Dostępność'' (stan sond, dostępność w procentach z 24~godzin, czas
 odpowiedzi), ,,Kontenery i host'' oraz ,,Baza danych i magazyn plików''.
 
+Rysunki~\ref{fig:grafana-api} i~\ref{fig:grafana-dostepnosc} pokazują
+dashboardy działającego systemu z ostatnich trzech godzin. Zrzuty wykonuje
+skrypt \texttt{scripts/grafana-screenshots.mjs}, który loguje się do Grafany
+w przeglądarce Chromium i czeka, aż wszystkie panele pobiorą dane. Ruch widoczny
+na wykresach pochodzi głównie z sond blackbox i kontroli stanu. Około godziny
+21:55 wykresy odsetka błędów, czasu p99 i opóźnienia pętli zdarzeń pokazują
+krótki skok: na tym samym komputerze działały wtedy równolegle testy E2E
+i testy backendu, pętla zdarzeń backendu była zablokowana przez 2,4~s,
+a kontrola żywotności odpowiadała kodem 503. Monitoring zarejestrował
+rzeczywiste przeciążenie, a po jego ustąpieniu wartości wróciły do normy.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{zrzuty/grafana-aplikacja.png}
+\caption{Dashboard ,,Aplikacja -- API'' w Grafanie}
+\label{fig:grafana-api}
+\zrodlo{opracowanie własne (zrzut ekranu)}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/grafana-dostepnosc.png}
+
+  \small (a) Dostępność
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/grafana-baza.png}
+
+  \small (b) Baza danych i magazyn plików
+\end{minipage}
+\caption{Dashboardy dostępności oraz bazy danych i magazynu plików}
+\label{fig:grafana-dostepnosc}
+\zrodlo{opracowanie własne (zrzut ekranu)}
+\end{figure}
+
 \subsubsection{Watchdog procesu}
 
 \begin{itemize}
@@ -98,7 +137,14 @@ Prometheus, który pobiera z nich metryki (alert \texttt{TargetDown}).
 
 Każda usługa ma limit pamięci (\texttt{mem\_limit}) i procesora
 (\texttt{cpus}). Wyciek pamięci kończy się kontrolowanym restartem kontenera,
-a nie spowolnieniem całego komputera.
+a nie spowolnieniem całego komputera. Limity trzeba jednak dobrać do
+rzeczywistego zużycia. Grafana miała początkowo 256~MiB i podczas
+wykonywania zrzutów dashboardów została zatrzymana przez mechanizm OOM
+(zdarzenie \texttt{oom} w Dockerze, kod wyjścia 137). Po wczytaniu
+dashboardów trzyma ona około 430~MB obiektów, a domyślne ustawienia
+odśmiecania pamięci w języku Go uruchamiają je dopiero przy podwojeniu sterty.
+Limit zwiększono do 768~MiB, a zmienna \texttt{GOMEMLIMIT} (600~MiB) wymusza
+wcześniejsze odśmiecanie.
 
 \subsubsection{Sondy z zewnątrz}
 
@@ -158,6 +204,16 @@ Alert \texttt{Watchdog} jest aktywny przez cały czas i co 5~minut trafia do
 odbiorcy. Jego brak oznacza awarię samego monitoringu (Prometheusa,
 Alertmanagera albo połączenia między nimi), której zwykłe alerty nie mogłyby
 zgłosić. To samo rozwiązanie stosuje standardowy zestaw kube-prometheus.
+Rysunek~\ref{fig:prometheus-alerty} pokazuje listę reguł w interfejsie
+Prometheusa. W chwili wykonania zrzutu żaden alert nie był aktywny.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{zrzuty/prometheus-alerty.png}
+\caption{Reguły alertów w Prometheusie (wszystkie nieaktywne)}
+\label{fig:prometheus-alerty}
+\zrodlo{opracowanie własne (zrzut ekranu)}
+\end{figure}
 
 \subsubsection{Logi}
 
