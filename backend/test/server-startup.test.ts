@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const backendDir = resolve(import.meta.dirname, '..');
+const STARTUP_TIMEOUT_MS = 30_000;
 
 /**
  * Starts `src/server.ts` (through tsx) with the given environment and waits for it
@@ -16,29 +17,39 @@ function startServer(env: NodeJS.ProcessEnv): { status: number | null; stderr: s
     cwd: backendDir,
     env,
     encoding: 'utf8',
-    timeout: 10000,
+    // Normally ~3 s; under CPU load (parallel Docker stack, coverage) it took over 10 s.
+    // A correctly configured server never exits, so only a failing run waits this long.
+    timeout: STARTUP_TIMEOUT_MS,
   });
   return { status: result.status, stderr: result.stderr };
 }
 
 describe('server startup with invalid configuration', () => {
-  it('exits with code 1 and names every missing variable', () => {
-    const { PATH, SystemRoot } = process.env;
+  it(
+    'exits with code 1 and names every missing variable',
+    { timeout: STARTUP_TIMEOUT_MS + 5000 },
+    () => {
+      const { PATH, SystemRoot } = process.env;
 
-    const { status, stderr } = startServer({ PATH, SystemRoot, NODE_ENV: 'test' });
+      const { status, stderr } = startServer({ PATH, SystemRoot, NODE_ENV: 'test' });
 
-    expect(status).toBe(1);
-    expect(stderr).toContain('Invalid configuration');
-    for (const name of ['DATABASE_URL', 'S3_ENDPOINT', 'JWT_SECRET', 'MASTER_ENCRYPTION_KEY']) {
-      expect(stderr).toContain(name);
-    }
-  });
+      expect(status).toBe(1);
+      expect(stderr).toContain('Invalid configuration');
+      for (const name of ['DATABASE_URL', 'S3_ENDPOINT', 'JWT_SECRET', 'MASTER_ENCRYPTION_KEY']) {
+        expect(stderr).toContain(name);
+      }
+    },
+  );
 
-  it('does not print secret values when a variable is invalid', () => {
-    const { status, stderr } = startServer({ ...process.env, JWT_SECRET: 'too-short-secret' });
+  it(
+    'does not print secret values when a variable is invalid',
+    { timeout: STARTUP_TIMEOUT_MS + 5000 },
+    () => {
+      const { status, stderr } = startServer({ ...process.env, JWT_SECRET: 'too-short-secret' });
 
-    expect(status).toBe(1);
-    expect(stderr).toContain('JWT_SECRET');
-    expect(stderr).not.toContain('too-short-secret');
-  });
+      expect(status).toBe(1);
+      expect(stderr).toContain('JWT_SECRET');
+      expect(stderr).not.toContain('too-short-secret');
+    },
+  );
 });
