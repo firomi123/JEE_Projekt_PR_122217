@@ -105,3 +105,37 @@ export async function createDocumentViaApi(
   expect(response.status()).toBe(201);
   return (await response.json()).document.id;
 }
+
+/**
+ * Types a search text and then chooses a status exactly when the delayed search
+ * update is due, before React has re-rendered after the status change.
+ *
+ * The page's main thread is blocked longer than the 300 ms search delay, so the
+ * pending search timer is already overdue when the status `change` event is
+ * dispatched; the timer then runs before the (transition) re-render. This makes
+ * the race between the two URL updates deterministic instead of load-dependent.
+ *
+ * @param page - Page showing a document list with the search box and the status filter.
+ * @param text - Text typed into the search box.
+ * @param status - Value (not label) of the status option to choose.
+ */
+export async function searchAndChooseStatusAtOnce(
+  page: Page,
+  text: string,
+  status: string,
+): Promise<void> {
+  await page.getByLabel('Szukaj (tytuł lub numer)').fill(text);
+  const select = await page.getByLabel('Status', { exact: true }).elementHandle();
+  await page.evaluate(
+    ([element, value]) => {
+      const until = performance.now() + 500;
+      while (performance.now() < until) {
+        // Busy wait: the search timer becomes overdue.
+      }
+      const statusSelect = element as HTMLSelectElement;
+      statusSelect.value = value as string;
+      statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    [select, status] as const,
+  );
+}

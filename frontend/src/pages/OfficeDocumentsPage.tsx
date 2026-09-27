@@ -16,6 +16,7 @@ import { useDrivers, useOfficeDocumentList } from '../hooks/useOffice';
 import { T } from '../i18n/texts';
 import { driverName } from '../lib/driver';
 import { formatDateTime } from '../lib/format';
+import { mergeSearchParams } from '../lib/search-params';
 
 /** Page size of the office list. */
 const PAGE_SIZE = 25;
@@ -66,28 +67,21 @@ export function OfficeDocumentsPage({ toReview }: { toReview: boolean }) {
 
   /**
    * Updates query parameters, resetting to page 1 unless the page itself changes.
+   * Builds on the current URL and commits synchronously (`flushSync`), so two
+   * updates in quick succession cannot overwrite each other (see `mergeSearchParams`).
    *
    * @param changes - Parameters to set (empty string removes one).
    */
   const update = (changes: Record<string, string>) => {
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        for (const [key, value] of Object.entries(changes)) {
-          if (value) next.set(key, value);
-          else next.delete(key);
-        }
-        if (!('page' in changes)) next.delete('page');
-        return next;
-      },
-      { replace: true },
-    );
+    setParams(mergeSearchParams(window.location.search, changes), {
+      replace: true,
+      flushSync: true,
+    });
   };
 
   /**
-   * Applies the typed search text to the URL. An effect event always sees the
-   * latest render, so a filter changed while the delay was running is kept (a plain
-   * closure from the time of typing would write back the old filters).
+   * Applies the typed search text to the URL (on top of the current URL, see
+   * `mergeSearchParams`), so a filter changed while the delay was running is kept.
    *
    * @param text - Text typed in the search box.
    */

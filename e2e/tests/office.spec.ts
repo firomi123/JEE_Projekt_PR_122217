@@ -1,7 +1,7 @@
 import { devices, type APIRequestContext, type Page } from '@playwright/test';
 import { e2eOffice } from '../env';
 import { expect, test } from './fixtures';
-import { fillLogin, PASSWORD, uniqueUsername } from './helpers';
+import { fillLogin, PASSWORD, searchAndChooseStatusAtOnce, uniqueUsername } from './helpers';
 
 /** A driver prepared through the API, with one submitted document. */
 interface PreparedDriver {
@@ -108,8 +108,7 @@ test.describe('office panel in a desktop browser', () => {
     await loginAsOffice(page);
     await page.getByRole('link', { name: 'Wszystkie dokumenty' }).click();
 
-    await page.getByLabel('Szukaj (tytuł lub numer)').fill('nieistniejący');
-    await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Zaakceptowany' });
+    await searchAndChooseStatusAtOnce(page, 'nieistniejący', 'ACCEPTED');
 
     await expect(page).toHaveURL(/q=nieistniej/);
     await expect(page).toHaveURL(/status=ACCEPTED/);

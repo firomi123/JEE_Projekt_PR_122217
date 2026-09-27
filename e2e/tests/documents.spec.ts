@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { disguisedExe, pdfFile, pngFile } from './files';
-import { createDocumentViaApi, registerThroughUi } from './helpers';
+import { createDocumentViaApi, registerThroughUi, searchAndChooseStatusAtOnce } from './helpers';
 
 const FILE_LABEL = 'Plik (JPG, PNG lub PDF, maks. 10 MB)';
 
@@ -104,8 +104,7 @@ test('keeps a filter chosen while the search text is still being applied', async
 
   // The search is applied 300 ms after typing; choosing the status within that
   // time must not be undone by the delayed search update.
-  await page.getByLabel('Szukaj (tytuł lub numer)').fill('Gdańsk');
-  await page.getByLabel('Status', { exact: true }).selectOption({ label: 'Przesłany' });
+  await searchAndChooseStatusAtOnce(page, 'Gdańsk', 'SUBMITTED');
 
   await expect(page).toHaveURL(/q=Gda/);
   await expect(page).toHaveURL(/status=SUBMITTED/);
