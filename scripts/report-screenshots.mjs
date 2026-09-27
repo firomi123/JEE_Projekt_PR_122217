@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Takes the screenshots used in the report (docs/sprawozdanie/img/zrzuty/) from a
- * running deployment, in an emulated Pixel 7 phone with a fake camera.
+ * Prepares the demo data for the report screenshots and photographs the office panel.
  *
- * Creates a demo driver with a few documents through the API (the office account
- * from `.env` accepts one and rejects another), then photographs the driver's
- * screens (login, list, details, camera, photo editor, profile)
- * in an emulated phone and the office panel (list, document) in a desktop browser.
+ * 1. Creates the demo driver `jan_kowalski` (password `Tajne123!`) with a profile and
+ *    four documents through the API; the office account from `.env` accepts one and
+ *    rejects another (with a reason). The driver's screens are then photographed on
+ *    a real phone (adb, see README), logged in as this driver.
+ * 2. Photographs the office panel (list, document with the decision form) in a
+ *    1440×900 desktop browser into docs/sprawozdanie/img/zrzuty/biuro-*.png.
+ * With `--office-only` step 1 is skipped (e.g. after documents were added on the phone).
  *
  * Usage: npm run docs:screenshots – runs this script against a disposable copy of the
  * Docker stack (scripts/e2e-docker.mjs), because it creates a demo account and
@@ -50,8 +52,9 @@ function envValue(name) {
 }
 const office = { username: envValue('OFFICE_USERNAME'), password: envValue('OFFICE_PASSWORD') };
 
-const username = `kierowca_${Date.now().toString(36)}`;
+const username = 'jan_kowalski';
 const password = 'Tajne123!';
+const officeOnly = process.argv.includes('--office-only');
 
 /**
  * Draws a simple CMR-like form as a PNG in the browser, so the preview shows a
@@ -114,117 +117,74 @@ async function documentImage(page, title) {
   return Buffer.from(base64, 'base64');
 }
 
-const browser = await chromium.launch({
-  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
-});
-const context = await browser.newContext({
-  ...devices['Pixel 7'],
-  deviceScaleFactor: 2,
-  baseURL,
-  locale: 'pl-PL',
-});
+const browser = await chromium.launch();
+const context = await browser.newContext({ baseURL, locale: 'pl-PL' });
 const page = await context.newPage();
-page.on('dialog', (dialog) => dialog.accept());
-/**
- * Saves a screenshot of the current viewport to the report's screenshot folder.
- * @param {string} name - File name without extension.
- * @returns {Promise<Buffer>} The PNG bytes (also written to `<outDir>/<name>.png`).
- */
-const shot = (name) => page.screenshot({ path: resolve(outDir, `${name}.png`) });
-
 await page.goto('/logowanie');
-await shot('logowanie');
 
-// Demo account and documents through the API.
-await page.request.post('/api/auth/register', {
-  data: { username, email: `${username}@example.com`, password, confirmPassword: password },
-});
-const login = await (
-  await page.request.post('/api/auth/login', { data: { username, password } })
-).json();
-const auth = { Authorization: `Bearer ${login.accessToken}` };
-const officeLogin = await (await page.request.post('/api/auth/login', { data: office })).json();
-const officeAuth = { Authorization: `Bearer ${officeLogin.accessToken}` };
-await page.request.put('/api/profile', {
-  headers: auth,
-  data: { firstName: 'Jan', lastName: 'Kowalski', companyName: 'Trans-Pol Sp. z o.o.' },
-});
-const demo = [
-  ['CMR', 'CMR Łódź – Berlin', 'PL 555/2026', 'SUBMITTED'],
-  ['WZ', 'WZ magazyn Stryków', 'WZ/123/2026', 'ACCEPTED'],
-  ['INVOICE', 'Faktura za paliwo', 'FV/09/2026', 'DRAFT'],
-  ['CMR', 'CMR Poznań – Praga', 'PL 548/2026', 'REJECTED'],
-];
-let firstId;
-for (const [type, title, number, status] of demo) {
-  const response = await page.request.post('/api/documents', {
+if (!officeOnly) {
+  // Demo account and documents through the API.
+  await page.request.post('/api/auth/register', {
+    data: { username, email: `${username}@example.com`, password, confirmPassword: password },
+  });
+  const login = await (
+    await page.request.post('/api/auth/login', { data: { username, password } })
+  ).json();
+  const auth = { Authorization: `Bearer ${login.accessToken}` };
+  const officeLogin = await (await page.request.post('/api/auth/login', { data: office })).json();
+  const officeAuth = { Authorization: `Bearer ${officeLogin.accessToken}` };
+  await page.request.put('/api/profile', {
     headers: auth,
-    multipart: {
-      type,
-      title,
-      number,
-      file: {
-        name: 'skan.png',
-        mimeType: 'image/png',
-        buffer: await documentImage(page, `CMR ${number}`),
-      },
+    data: {
+      firstName: 'Jan',
+      lastName: 'Kowalski',
+      phone: '+48 601 234 567',
+      licenseNumber: '00123/15/1465',
+      companyName: 'Trans-Pol Sp. z o.o.',
     },
   });
-  const { document } = await response.json();
-  firstId ??= document.id;
-  if (status !== 'DRAFT') {
-    await page.request.patch(`/api/documents/${document.id}`, {
+  const demo = [
+    ['CMR', 'CMR Łódź – Berlin', 'PL 555/2026', 'SUBMITTED'],
+    ['WZ', 'WZ magazyn Stryków', 'WZ/123/2026', 'ACCEPTED'],
+    ['INVOICE', 'Faktura za paliwo', 'FV/09/2026', 'DRAFT'],
+    ['CMR', 'CMR Poznań – Praga', 'PL 548/2026', 'REJECTED'],
+  ];
+  for (const [type, title, number, status] of demo) {
+    const response = await page.request.post('/api/documents', {
       headers: auth,
-      data: { status: 'SUBMITTED' },
-    });
-  }
-  // Accepting and rejecting is up to the office.
-  if (status === 'ACCEPTED' || status === 'REJECTED') {
-    await page.request.post(`/api/office/documents/${document.id}/review`, {
-      headers: officeAuth,
-      data: {
-        decision: status,
-        comment:
-          status === 'REJECTED'
-            ? 'Nieczytelna pieczątka odbiorcy – zrób zdjęcie jeszcze raz'
-            : null,
+      multipart: {
+        type,
+        title,
+        number,
+        file: {
+          name: 'skan.png',
+          mimeType: 'image/png',
+          buffer: await documentImage(page, `CMR ${number}`),
+        },
       },
     });
+    const { document } = await response.json();
+    if (status !== 'DRAFT') {
+      await page.request.patch(`/api/documents/${document.id}`, {
+        headers: auth,
+        data: { status: 'SUBMITTED' },
+      });
+    }
+    // Accepting and rejecting is up to the office.
+    if (status === 'ACCEPTED' || status === 'REJECTED') {
+      await page.request.post(`/api/office/documents/${document.id}/review`, {
+        headers: officeAuth,
+        data: {
+          decision: status,
+          comment:
+            status === 'REJECTED'
+              ? 'Nieczytelna pieczątka odbiorcy – zrób zdjęcie jeszcze raz'
+              : null,
+        },
+      });
+    }
   }
 }
-
-await page.getByLabel('Login').fill(username);
-await page.getByLabel('Hasło').fill(password);
-await page.getByRole('button', { name: 'Zaloguj się' }).click();
-await page.getByText('Dokumentów: 4').waitFor();
-await shot('lista');
-
-await page.goto(`/dokumenty/${firstId}`);
-await page.getByRole('img', { name: /Podgląd dokumentu/ }).waitFor();
-await shot('szczegoly');
-
-await page.goto('/dokumenty/nowy');
-await page.getByRole('button', { name: 'Zrób zdjęcie' }).click();
-await page.waitForFunction(() => document.querySelector('video')?.videoWidth > 0);
-await shot('aparat');
-await page.getByRole('button', { name: 'Wykonaj zdjęcie' }).click();
-await page.getByTestId('photo-editor').waitFor();
-await page.waitForTimeout(500);
-await shot('kadrowanie');
-await page.getByRole('button', { name: 'Użyj zdjęcia' }).click();
-await page.getByTestId('compression-info').waitFor();
-await page.getByLabel('Tytuł').fill('CMR Łódź – Berlin');
-await shot('nowy-dokument');
-
-await page.goto('/profil');
-await page.getByLabel('Imię').fill('Jan');
-await page.getByLabel('Nazwisko').fill('Kowalski');
-await page.getByLabel('Telefon').fill('+48 601 234 567');
-await page.getByLabel('Numer prawa jazdy').fill('00123/15/1465');
-await page.getByLabel('Firma przewozowa').fill('Trans-Pol Sp. z o.o.');
-await page.getByRole('button', { name: 'Zapisz profil' }).click();
-await page.getByRole('status').waitFor();
-await shot('profil');
 
 // Office panel in a desktop browser (1440×900).
 const desktop = await browser.newContext({
@@ -240,7 +200,8 @@ await officePage.getByLabel('Hasło').fill(office.password);
 await officePage.getByRole('button', { name: 'Zaloguj się' }).click();
 await officePage.getByTestId('office-row').first().waitFor();
 await officePage.screenshot({ path: resolve(outDir, 'biuro-lista.png') });
-await officePage.getByRole('link', { name: 'Otwórz dokument CMR Łódź – Berlin' }).first().click();
+// The newest submitted document (after the phone session: the real photo).
+await officePage.getByTestId('office-row').first().getByRole('link').click();
 await officePage.getByRole('img', { name: /Podgląd dokumentu/ }).waitFor();
 await officePage.getByLabel('Komentarz dla kierowcy').fill('Brak podpisu odbiorcy w polu 24');
 await officePage.screenshot({ path: resolve(outDir, 'biuro-dokument.png') });

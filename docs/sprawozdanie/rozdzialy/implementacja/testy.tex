@@ -320,18 +320,16 @@ prawdziwym telefonie z systemem Android podłączonym przez ADB
 (\texttt{adb reverse} przekierowuje port aplikacji, dzięki czemu telefon
 otwiera ją pod adresem \texttt{localhost}, który jest bezpiecznym kontekstem).
 Test wykonano na telefonie Samsung Galaxy A26 z systemem Android~16
-i przeglądarką Chrome, podłączonym przez USB, na aplikacji ze stosu Docker
-(rysunek~\ref{fig:telefon}). Przebieg: rejestracja konta, dodanie dokumentu
-CMR, zgoda na dostęp do aparatu, zdjęcie wydrukowanej kartki tylnym
-aparatem, kadrowanie, zapis, przesłanie do biura i instalacja aplikacji na
-ekranie głównym (ikona ,,Kierowca'', uruchamiana bez paska adresu).
-Zdjęcie zapisało się jako JPEG 1440$\times$1080 pikseli o rozmiarze
-78\,891~B (77~kB). Jest to klatka ze strumienia tylnego aparatu, a jej
-rozmiar mieści się w limitach aplikacji (2000~pikseli, 1~MB), więc nie
-wymagała dodatkowej kompresji. Po wprowadzeniu panelu biura sprawdzono na
-tym samym telefonie widok dokumentu odrzuconego przez biuro z podanym
-powodem. Test potwierdził wyniki emulacji. Nie wykazał też problemów
-z uprawnieniami aparatu, obsługą dotykiem ani instalacją PWA.
+i przeglądarką Chrome, podłączonym przez USB (rysunki~\ref{fig:zrzuty-1},
+\ref{fig:zrzuty-2} i~\ref{fig:telefon}). Przebieg: rejestracja konta, dodanie
+dokumentu CMR, zgoda na dostęp do aparatu, zdjęcie dokumentu tylnym
+aparatem, kadrowanie, zapis, przesłanie do biura, decyzja biura widoczna na
+telefonie oraz instalacja aplikacji na ekranie głównym (ikona ,,Kierowca'',
+uruchamiana bez paska adresu). Aparat przekazuje klatki 1440$\times$1080
+pikseli. Po wykadrowaniu do 1080$\times$810 pikseli i kompresji zdjęcie
+zajęło 70,1~kB zamiast 367,8~kB (rysunek~\ref{fig:zrzuty-2}). Test
+potwierdził wyniki emulacji i nie wykazał problemów z uprawnieniami aparatu,
+obsługą dotykiem ani instalacją PWA.
 
 \begin{figure}[htbp]
 \centering
@@ -343,35 +341,35 @@ z uprawnieniami aparatu, obsługą dotykiem ani instalacją PWA.
 \end{minipage}\hfill
 \begin{minipage}[t]{0.3\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/telefon-kadrowanie.jpg}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-przeslany.jpg}
 
-  \small (b) kadrowanie zdjęcia z tylnego aparatu
-\end{minipage}\hfill
-\begin{minipage}[t]{0.3\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{zrzuty/telefon-historia.jpg}
-
-  \small (c) wersja 77~kB i historia po przesłaniu
-\end{minipage}
-
-\vspace{0.4cm}
-\begin{minipage}[t]{0.3\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{zrzuty/telefon-instalacja.jpg}
-
-  \small (d) instalacja PWA
-\end{minipage}\hfill
-\begin{minipage}[t]{0.3\textwidth}
-  \centering
-  \includegraphics[width=\linewidth]{zrzuty/telefon-ikona.jpg}
-
-  \small (e) ikona na ekranie głównym
+  \small (b) dokument przesłany do biura
 \end{minipage}\hfill
 \begin{minipage}[t]{0.3\textwidth}
   \centering
   \includegraphics[width=\linewidth]{zrzuty/telefon-odrzucony.jpg}
 
-  \small (f) dokument odrzucony przez biuro
+  \small (c) dokument odrzucony przez biuro
+\end{minipage}
+
+\vspace{0.4cm}
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-historia.jpg}
+
+  \small (d) historia z komentarzem biura
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-instalacja.jpg}
+
+  \small (e) instalacja PWA
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-ikona.jpg}
+
+  \small (f) ikona na ekranie głównym
 \end{minipage}
 \caption{Test na prawdziwym telefonie (Samsung Galaxy A26, Android~16, Chrome)}
 \label{fig:telefon}

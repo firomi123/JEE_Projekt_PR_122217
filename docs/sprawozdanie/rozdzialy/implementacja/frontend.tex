@@ -284,66 +284,71 @@ Rysunek~\ref{fig:biuro} pokazuje panel biura w przeglądarce na komputerze
 
 \subsubsection{Wygląd aplikacji}
 
-Rysunki~\ref{fig:zrzuty-1} i~\ref{fig:zrzuty-2} pokazują główne ekrany
-aplikacji. Zrzuty wykonano skryptem \path{scripts/report-screenshots.mjs}
-w przeglądarce Chromium sterowanej przez Playwright, w emulacji telefonu
-Pixel~7 (ekran 412$\times$915 punktów), na aplikacji uruchomionej w stosie
-Docker. Skrypt zakłada konto demonstracyjne i dodaje przez API kilka
-dokumentów. Obraz z aparatu pochodzi z wirtualnej kamery Chromium (ruchomy
-wzór testowy), a nie z prawdziwego aparatu.
+Rysunki~\ref{fig:zrzuty-1} i~\ref{fig:zrzuty-2} pokazują ekrany części
+kierowcy na prawdziwym telefonie (Samsung Galaxy A26, Chrome). Zrzuty
+wykonano poleceniem \texttt{adb exec-out screencap} na jednorazowej kopii
+stosu Docker z danymi demonstracyjnymi (konto \texttt{jan\_kowalski}),
+więc nie zawierają prawdziwych danych. Fotografowany dokument to fikcyjny
+list przewozowy CMR wyświetlony na monitorze komputera.
 
 \begin{figure}[htbp]
 \centering
-\begin{minipage}[t]{0.31\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/logowanie.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-logowanie.jpg}
 
   \small (a) logowanie
 \end{minipage}\hfill
-\begin{minipage}[t]{0.31\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/lista.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-lista.jpg}
 
-  \small (b) lista dokumentów z filtrami
+  \small (b) lista ze statusami
 \end{minipage}\hfill
-\begin{minipage}[t]{0.31\textwidth}
+\begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/szczegoly.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-szczegoly.jpg}
 
   \small (c) szczegóły dokumentu
+\end{minipage}\hfill
+\begin{minipage}[t]{0.23\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{zrzuty/telefon-profil.jpg}
+
+  \small (d) profil kierowcy
 \end{minipage}
-\caption{Ekrany aplikacji: logowanie, lista i szczegóły dokumentu (emulacja telefonu Pixel~7)}
+\caption{Ekrany kierowcy na telefonie: logowanie, lista, szczegóły dokumentu i profil}
 \label{fig:zrzuty-1}
-\zrodlo{opracowanie własne (zrzuty ekranu aplikacji)}
+\zrodlo{opracowanie własne (zrzuty ekranu telefonu)}
 \end{figure}
 
 \begin{figure}[htbp]
 \centering
 \begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/aparat.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-zgoda.jpg}
 
-  \small (a) podgląd aparatu
+  \small (a) zgoda na dostęp do kamery
 \end{minipage}\hfill
 \begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/kadrowanie.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-aparat.jpg}
 
-  \small (b) kadrowanie i obrót
+  \small (b) podgląd tylnego aparatu
 \end{minipage}\hfill
 \begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/nowy-dokument.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-kadrowanie.jpg}
 
-  \small (c) zdjęcie po kompresji
+  \small (c) kadrowanie i obrót
 \end{minipage}\hfill
 \begin{minipage}[t]{0.23\textwidth}
   \centering
-  \includegraphics[width=\linewidth]{zrzuty/profil.png}
+  \includegraphics[width=\linewidth]{zrzuty/telefon-kompresja.jpg}
 
-  \small (d) profil kierowcy
+  \small (d) zdjęcie po kompresji
 \end{minipage}
-\caption{Dodawanie dokumentu zdjęciem i profil kierowcy (emulacja telefonu Pixel~7, wirtualna kamera)}
+\caption{Dodawanie dokumentu zdjęciem na telefonie}
 \label{fig:zrzuty-2}
-\zrodlo{opracowanie własne (zrzuty ekranu aplikacji)}
+\zrodlo{opracowanie własne (zrzuty ekranu telefonu)}
 \end{figure}
