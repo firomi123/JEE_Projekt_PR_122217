@@ -2,7 +2,7 @@
 \label{sec:baza-danych}
 
 Dane aplikacji są przechowywane w bazie PostgreSQL 16 \cite{postgresql},
-a dostęp do nich zapewnia Prisma ORM w wersji 7 \cite{prisma}. Schemat bazy
+a dostęp do nich zapewnia Prisma ORM w wersji 7. Schemat bazy
 jest zdefiniowany w jednym pliku \path{backend/prisma/schema.prisma}.
 Na jego podstawie Prisma generuje klienta z typami TypeScript, więc zapytania
 do nieistniejących kolumn i błędy typów wykrywa już kompilator. Prisma 7 nie

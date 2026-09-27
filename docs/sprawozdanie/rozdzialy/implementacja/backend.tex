@@ -2,7 +2,7 @@
 \label{sec:backend}
 
 Backend to serwer REST API napisany w TypeScripcie na platformie Node.js
-z frameworkiem Express 5 \cite{nodejs,express}. Kod jest kompilowany do modułów
+z frameworkiem Express 5 \cite{express}. Kod jest kompilowany do modułów
 ECMAScript i uruchamiany w kontenerze opisanym w podrozdziale~\ref{sec:docker}.
 
 \subsubsection{Warstwy aplikacji}
@@ -30,8 +30,8 @@ nieistniejącej bazy danych, i sprawdzić zachowanie systemu przy awarii
 
 \subsubsection{Walidacja konfiguracji}
 
-Przy starcie zmienne środowiskowe są sprawdzane schematem biblioteki Zod
-\cite{zod}. Sprawdzane są m.in.: format adresu bazy danych, poprawność adresu
+Przy starcie zmienne środowiskowe są sprawdzane schematem biblioteki Zod.
+Sprawdzane są m.in.: format adresu bazy danych, poprawność adresu
 URL magazynu MinIO, minimalna długość sekretu JWT (32 znaki) oraz to, czy
 klucz główny szyfrowania jest zapisem base64 dokładnie 32 bajtów. Puste
 wartości są traktowane jak brakujące. Przy błędnej konfiguracji proces wypisuje
@@ -106,7 +106,7 @@ potrzebują bloków \texttt{try/catch}.
 
 \subsubsection{Logowanie zdarzeń}
 
-Logi są zapisywane biblioteką pino \cite{pino} jako jeden obiekt JSON na
+Logi są zapisywane biblioteką pino jako jeden obiekt JSON na
 linię. Taki format łatwo przeszukiwać i zbierać centralnie
 (podrozdział~\ref{sec:monitoring}). Każde żądanie dostaje identyfikator
 (\texttt{requestId}): jeśli klient przesłał poprawny nagłówek

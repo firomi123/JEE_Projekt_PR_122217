@@ -14,15 +14,13 @@ i aktów prawnych, stan na wrzesień 2026~r.
 
 Elektroniczny list przewozowy wprowadza Protokół dodatkowy do Konwencji CMR,
 podpisany w Genewie 20~lutego 2008~r. i obowiązujący od 5~czerwca 2011~r.
-\cite{un_ecmr_protokol}. Polska przystąpiła do niego w 2019~r., a protokół
-obowiązuje w Polsce od 11~września 2019~r. \cite{dzu_2019_1487}. Na poziomie
+\cite{un_ecmr_protokol}. Polska przystąpiła do niego w 2019~r. Na poziomie
 Unii Europejskiej rozporządzenie (UE) 2020/1056 w sprawie elektronicznych
 informacji dotyczących przewozu towarów (eFTI) zobowiązuje organy państw
 członkowskich do przyjmowania informacji udostępnionych elektronicznie przez
 certyfikowane platformy eFTI. Nie nakłada jednak na przewoźników obowiązku
 rezygnacji z papieru, a wybór formy elektronicznej pozostaje dobrowolny
-\cite{efti_rozporzadzenie}. Rozporządzenie ma być stosowane w pełni od
-9~lipca 2027~r. \cite{efti_ke}. W najbliższych latach papierowe dokumenty
+\cite{efti_rozporzadzenie}. W najbliższych latach papierowe dokumenty
 pozostaną więc w użyciu obok elektronicznych, a kierowca nadal musi je
 przechowywać i przekazywać do biura.
 
@@ -38,7 +36,7 @@ W aplikacji Drive kierowca rejestruje etapy przewozu, udostępnia lokalizację,
 zgłasza nieprawidłowości i obsługuje dokumenty elektroniczne: e-CMR,
 potwierdzenie dostawy, listy pakowe. Dokumenty podpisuje podpisem
 elektronicznym, a do zlecenia może dołączyć zdjęcia, które trafiają do
-archiwum w portalu \cite{transfollow_drive}.
+archiwum w portalu \cite{transfollow}.
 
 TransFollow jest rozwiązaniem B2B zbudowanym wokół zlecenia transportowego
 i współpracy nadawcy, przewoźnika i odbiorcy. Obsługuje dokumenty tworzone
@@ -54,26 +52,22 @@ Dla kierowców przeznaczona jest aplikacja \emph{Loads4Driver}, służąca do
 komunikacji z kierowcą i przekazywania sygnału monitorowania pojazdu.
 Wymaga ona konta powiązanego z rolą ,,Kierowca'' w koncie firmy i może być
 dodatkowo płatna \cite{transeu_regulamin}. Dokumenty są związane ze zleceniami
-transportowymi. Grupa Trans.eu od 2021~r. rozwija moduł e-CMR
-\cite{transeu_ecmr}, a w 2025~r. opisywała automatyczne generowanie e-CMR
+transportowymi. Grupa Trans.eu rozwija moduł e-CMR: w 2025~r. opisywała
+automatyczne generowanie e-CMR
 powiązanego ze zleceniem, w wersji na komputer oraz Android i iOS, testowane
-przez wybranych klientów \cite{cargoon_ecmr}. Dostęp do platformy jest
-abonamentowy, a przykładowo prywatna giełda ładunków kosztuje od
-240~EUR netto miesięcznie \cite{transeu_cennik}.
+przez wybranych klientów \cite{cargoon_ecmr}. Dostęp do platformy jest płatny
+(abonament firmy) \cite{transeu_regulamin}.
 
 Z perspektywy kierowcy Trans.eu jest narzędziem firmy do pozyskiwania
 i realizacji zleceń, a nie osobistym archiwum dokumentów. W opisie aplikacji
 kierowcy nie znaleziono fotografowania i kadrowania dokumentów ani statusów
 i historii wersji dokumentu.
 
-\subsection{Adobe Scan (wcześniej także Microsoft Lens)}
+\subsection{Adobe Scan}
 
 Najprostszym sposobem digitalizacji papierowego dokumentu jest ogólna
-aplikacja do skanowania telefonem. Popularny dotąd Microsoft Lens został
-wycofany: od lutego 2026~r. nie ma go w sklepach, a od 9~marca 2026~r.
-nie wykonuje skanów. Microsoft zaleca zamiast niego skanowanie w aplikacji
-OneDrive, które zapisuje pliki tylko w chmurze OneDrive \cite{ms_lens}.
-Przeglądowi poddano więc Adobe Scan \cite{adobe_scan}. Jest bezpłatny na
+aplikacja do skanowania telefonem. Przeglądowi poddano jedną z najpopularniejszych,
+Adobe Scan \cite{adobe_scan}. Jest bezpłatny na
 Android i iOS, automatycznie wykrywa krawędzie dokumentu, koryguje perspektywę,
 usuwa odblaski i cienie, a tekst rozpoznaje funkcją OCR. Wynik zapisuje jako
 PDF z możliwością przeszukiwania albo jako JPEG, w folderach w chmurze Adobe
@@ -84,8 +78,7 @@ Pod względem jakości zdjęcia Adobe Scan przewyższa proste kadrowanie
 zastosowane w projekcie. Jest to jednak skaner ogólnego przeznaczenia: nie
 zna typów dokumentów przewozowych, nie ma statusów obiegu dokumentu, historii
 wersji ani powiązania z profilem kierowcy i nie obsługuje e-CMR. Pliki trafiają
-do chmury dostawcy, a przypadek Microsoft Lens pokazuje, że dostawca może
-wycofać narzędzie, z którego korzystają użytkownicy.
+do chmury dostawcy, więc firma nie ma nad nimi pełnej kontroli.
 
 \subsection{Porównanie}
 
@@ -118,7 +111,7 @@ Przechowywanie & chmura dostawcy & chmura dostawcy & chmura Adobe & własny serw
 Koszt & cennik niepubliczny & abonament firmy & bezpłatny, funkcje premium płatne & bez opłat (własne wdrożenie) \\
 \hline
 \end{tabular}
-\zrodlo{opracowanie własne na podstawie \cite{transfollow,transfollow_drive,transeu_regulamin,transeu_cennik,cargoon_ecmr,adobe_scan}}
+\zrodlo{opracowanie własne na podstawie \cite{transfollow,transeu_regulamin,cargoon_ecmr,adobe_scan}}
 \end{table}
 
 Platformy transportowe rozwiązują obieg dokumentów elektronicznych między

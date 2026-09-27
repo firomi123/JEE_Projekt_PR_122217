@@ -68,7 +68,7 @@ po 10-sekundowym limicie.
 
 \subsubsection{Serwer nginx}
 
-Konfiguracja nginx (\texttt{frontend/nginx.conf}) \cite{nginx} realizuje trzy
+Konfiguracja nginx (\texttt{frontend/nginx.conf}) realizuje trzy
 zadania. Nieznane ścieżki kieruje do \texttt{index.html}, bo nawigacją
 zarządza router aplikacji React. Żądania \texttt{/api/*} przekazuje do
 backendu. Dodaje też nagłówki bezpieczeństwa (\texttt{X-Content-Type-Options},
@@ -158,7 +158,7 @@ W 2025 roku firma MinIO przestała publikować obrazy wersji Community
 w serwisie Docker Hub. W czasie realizacji projektu repozytorium
 \texttt{minio/minio} nie było tam już dostępne i próba pobrania obrazu kończyła
 się błędem. Projekt korzysta więc z rejestru \texttt{quay.io} z przypiętym
-wydaniem \texttt{RELEASE.2025-09-07T16-13-09Z} \cite{minio}. Wniosek z tej
+wydaniem \texttt{RELEASE.2025-09-07T16-13-09Z}. Wniosek z tej
 sytuacji: wersje obrazów należy przypinać. Obrazy MinIO, Prometheusa
 i Grafany mają przypiętą dokładną wersję, a obrazy bazowe (\texttt{node:22},
 \texttt{postgres:16}) wersję główną, która nadal otrzymuje poprawki
