@@ -24,9 +24,9 @@ Usługi zestawiono w tabeli~\ref{tab:uslugi}.
 \hline
 \texttt{postgres} & \texttt{postgres:16-alpine} & 5432\textsuperscript{*} & \texttt{pg\_isready} \\
 \hline
-\texttt{minio} & \texttt{quay.io/minio/minio} & 9000, 9001\textsuperscript{*} & \texttt{GET /minio/health/live} \\
+\texttt{minio} & \texttt{cgr.dev/chainguard/minio} & 9000, 9001\textsuperscript{*} & \texttt{mc ready} \\
 \hline
-\texttt{minio-init} & \texttt{quay.io/minio/mc} & -- & zadanie jednorazowe \\
+\texttt{minio-init} & \texttt{cgr.dev/chainguard/minio} & -- & zadanie jednorazowe \\
 \hline
 \texttt{prometheus} & \texttt{prom/prometheus} & 9090\textsuperscript{*} & \texttt{GET /-/healthy} \\
 \hline
@@ -157,9 +157,16 @@ systemem.
 W 2025 roku firma MinIO przestała publikować obrazy wersji Community
 w serwisie Docker Hub. W czasie realizacji projektu repozytorium
 \texttt{minio/minio} nie było tam już dostępne i próba pobrania obrazu kończyła
-się błędem. Projekt korzysta dlatego z rejestru \texttt{quay.io} z przypiętym
-wydaniem \texttt{RELEASE.2025-09-07T16-13-09Z}. Wniosek z tej
-sytuacji: wersje obrazów należy przypinać. Obrazy MinIO, Prometheusa
+się błędem. Projekt korzystał najpierw z rejestru \texttt{quay.io}, ale
+i tam obrazy przestały być dostępne bez logowania, co ujawnił dopiero
+pierwszy przebieg ciągłej integracji na GitHubie (na komputerze autora obrazy
+były już pobrane). Projekt używa dlatego darmowego obrazu MinIO przygotowanego
+przez firmę Chainguard (\texttt{cgr.dev/chainguard/minio}), przypiętego skrótem
+SHA-256. Obraz działa jako użytkownik bez uprawnień administratora i zawiera
+klienta \texttt{mc}, dlatego służy też do zadania \texttt{minio-init}
+i do kontroli stanu (\texttt{mc ready}). Wniosek z tej sytuacji: wersje
+obrazów należy przypinać, a pobieranie obrazów sprawdzać na czystym
+środowisku, np. w potoku CI. Obrazy MinIO, Prometheusa
 i Grafany mają przypiętą dokładną wersję, a obrazy bazowe (\texttt{node:22},
 \texttt{postgres:16}) wersję główną, która nadal otrzymuje poprawki
 bezpieczeństwa.

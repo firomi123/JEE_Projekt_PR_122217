@@ -47,9 +47,10 @@ services:
 
   minio:
     <<: [*restart, *autoheal]
-    # MinIO no longer publishes Community images on Docker Hub; this is the last
-    # Community release on quay.io.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # MinIO no longer publishes public images (Docker Hub, quay.io); Chainguard's free
+    # build of the Community edition is pinned by digest. It runs as uid 65532 and
+    # contains bash and the `mc` client, so the same image serves minio-init.
+    image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
     command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
@@ -66,7 +67,9 @@ services:
     mem_limit: 512m
     cpus: 1.0
     healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/minio/health/live']
+      test:
+        - CMD-SHELL
+        - MC_HOST_local="http://$$MINIO_ROOT_USER:$$MINIO_ROOT_PASSWORD@localhost:9000" mc ready local
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,7 +77,7 @@ services:
 
   # One-shot job: creates the documents bucket, then exits with code 0.
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: cgr.dev/chainguard/minio:latest@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
     restart: on-failure
     depends_on:
       minio:
