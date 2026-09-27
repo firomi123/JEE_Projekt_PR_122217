@@ -4,6 +4,8 @@ Responsywna aplikacja webowa (PWA) dla kierowców: zdjęcie dokumentu przewozowe
 
 Projekt zaliczeniowy z przedmiotu _Systemy Szkieletowe_ (Społeczna Akademia Nauk). Autor: Piotr Roman (nr albumu 122217, grupa 4) – projekt indywidualny.
 
+Sprawozdanie: [Sprawozdanie_PR_122217.pdf](Sprawozdanie_PR_122217.pdf) (źródła LaTeX w `docs/sprawozdanie/`).
+
 ## Funkcje
 
 - Rejestracja (formularz z walidacją) i logowanie loginem i hasłem, uwierzytelnianie tokenem JWT.
@@ -129,4 +131,4 @@ Sprawdzono na Samsung Galaxy A26 (Android 16, Chrome). Scenariusz ręczny: rejes
 | `npm run chaos`                                     | Test watchdogów na działającym stosie: awaria procesu, zamrożenie, zatrzymanie bazy (5–8 min, wymaga bash)                                   |
 | `npm run docs:code`                                 | Dokumentacja kodu TypeDoc (z opisów TSDoc) w `docs/kod/index.html`                                                                           |
 | `npm run docs:screenshots`                          | Dane demonstracyjne (`jan_kowalski` / `Tajne123!`) i zrzuty panelu biura na jednorazowej kopii stosu; z `E2E_KEEP_STACK=1` kopia zostaje na zrzuty z telefonu                                                                 |
-| `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`); `-- --clean` buduje od zera |
+| `npm run docs:report`                               | Buduje `docs/sprawozdanie/build/main.pdf` w Dockerze (diagramy PlantUML z `docs/diagramy/` + `texlive/texlive`) i kopiuje go do `Sprawozdanie_PR_122217.pdf`; `-- --clean` buduje od zera |

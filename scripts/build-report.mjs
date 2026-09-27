@@ -6,12 +6,13 @@
  *   1. renders every PlantUML diagram in docs/diagramy/*.puml to PNG in
  *      docs/sprawozdanie/img/diagramy/ (`plantuml/plantuml` image; output is
  *      gitignored and regenerated on every build),
- *   2. runs latexmk (pdflatex + biber) in the `texlive/texlive` image.
+ *   2. runs latexmk (pdflatex + biber) in the `texlive/texlive` image,
+ *   3. copies the PDF to Sprawozdanie_PR_122217.pdf in the repository root (committed).
  *
  * Usage: `npm run docs:report` (add `-- --clean` to remove the build directory first).
  */
 import { spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { copyFileSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,4 +81,9 @@ run('docker', [
   'main.tex',
 ]);
 
-console.log(`Report built: ${resolve(reportDir, 'build', 'main.pdf')}`);
+// A copy in the repository root is committed, so the report can be read without building it.
+const builtPdf = resolve(reportDir, 'build', 'main.pdf');
+const committedPdf = resolve(repoRoot, 'Sprawozdanie_PR_122217.pdf');
+copyFileSync(builtPdf, committedPdf);
+console.log(`Report built: ${builtPdf}`);
+console.log(`Copied to: ${committedPdf}`);

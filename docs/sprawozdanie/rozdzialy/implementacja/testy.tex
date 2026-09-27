@@ -308,9 +308,9 @@ zbudowania i uruchomienia całego stosu Docker z oczekiwaniem na stan
 \emph{healthy}. Raporty trafiają do artefaktów. Poprawność pliku sprawdzono
 narzędziem \texttt{actionlint}.
 
-Pierwsze przebiegi potoku na GitHubie wykryły trzy problemy niewidoczne na
-komputerze autora, gdzie obrazy Docker i zbudowane pakiety były już na
-dysku: obrazy MinIO z rejestru \texttt{quay.io} wymagały logowania
+Pierwsze przebiegi potoku na GitHubie wykryły trzy problemy, których nie
+widziałem na swoim komputerze, bo obrazy Docker i zbudowane pakiety były już
+na dysku: obrazy MinIO z rejestru \texttt{quay.io} wymagały logowania
 (rozdział~\ref{sec:docker}), Playwright uruchamiał backend przed
 zbudowaniem pakietu \texttt{shared} i migracją bazy (przygotowanie
 przeniesiono do polecenia startowego serwera), a opisany wyżej wyścig filtrów

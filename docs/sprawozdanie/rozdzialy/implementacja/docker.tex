@@ -158,9 +158,9 @@ W 2025 roku firma MinIO przestała publikować obrazy wersji Community
 w serwisie Docker Hub. W czasie realizacji projektu repozytorium
 \texttt{minio/minio} nie było tam już dostępne i próba pobrania obrazu kończyła
 się błędem. Projekt korzystał najpierw z rejestru \texttt{quay.io}, ale
-i tam obrazy przestały być dostępne bez logowania, co ujawnił dopiero
-pierwszy przebieg ciągłej integracji na GitHubie (na komputerze autora obrazy
-były już pobrane). Projekt używa dlatego darmowego obrazu MinIO przygotowanego
+i tam obrazy przestały być dostępne bez logowania. Zauważyłem to dopiero
+przy pierwszym przebiegu ciągłej integracji na GitHubie, bo na moim komputerze
+obrazy były już pobrane. Projekt używa dlatego darmowego obrazu MinIO przygotowanego
 przez firmę Chainguard (\texttt{cgr.dev/chainguard/minio}), przypiętego skrótem
 SHA-256. Obraz działa jako użytkownik bez uprawnień administratora i zawiera
 klienta \texttt{mc}, dlatego służy też do zadania \texttt{minio-init}
