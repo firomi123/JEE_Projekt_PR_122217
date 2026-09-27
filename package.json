@@ -34,6 +34,7 @@
     "chaos": "bash monitoring/chaos-test.sh",
     "docs:code": "typedoc",
     "docs:screenshots": "node scripts/e2e-docker.mjs -- node scripts/report-screenshots.mjs",
+    "docs:screenshots:monitoring": "node scripts/grafana-screenshots.mjs",
     "test:e2e:docker": "node scripts/e2e-docker.mjs"
   },
   "devDependencies": {
