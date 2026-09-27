@@ -82,6 +82,7 @@ PWA & manifest i ikony; start bez sieci z banerem braku połączenia; brak odpow
 Monitoring & metryki z etykietą szablonu trasy; liczniki nieudanych logowań i przesłanych plików; 503 z \texttt{/health} po zablokowaniu pętli zdarzeń; poprawność reguł alertów (\texttt{promtool}, \texttt{amtool}) \\
 \hline
 \end{tabular}
+\par
 \zrodlo{opracowanie własne}
 \end{table}
 
@@ -129,6 +130,7 @@ Biuro widziało stary status dokumentu ponownie przesłanego przez kierowcę & d
 Status wybrany zaraz po wpisaniu wyszukiwanego tekstu był cofany & opóźnione o 300~ms wyszukiwanie korzystało ze starego stanu filtrów, bo React Router renderuje nawigację asynchronicznie; poprawka buduje adres z bieżącego URL i zatwierdza zmianę synchronicznie (\texttt{flushSync}), a test celowo blokuje wątek przeglądarki, żeby oba zdarzenia zawsze nastąpiły w tej samej chwili \\
 \hline
 \end{tabular}
+\par
 \zrodlo{opracowanie własne}
 \end{table}
 
@@ -218,6 +220,7 @@ problemów z uprawnieniami aparatu, dotykiem ani instalacją.
 \end{minipage}
 \caption{Test na prawdziwym telefonie (Samsung Galaxy A26, Android~16, Chrome)}
 \label{fig:telefon}
+\par
 \zrodlo{opracowanie własne (zrzuty ekranu telefonu)}
 \end{figure}
 
@@ -249,6 +252,7 @@ Frontend (Playwright, 36 scenariuszy) & 94,1\,\% & 81,9\,\% & 89,9\,\% & 92,0\,\
 Frontend (tylko jednostkowe, 65 testów) & 13,8\,\% & 15,4\,\% & 10,4\,\% & 13,8\,\% \\
 \hline
 \end{tabular}
+\par
 \zrodlo{opracowanie własne}
 \end{table}
 
@@ -276,6 +280,7 @@ przypięta.
 \includegraphics[width=\textwidth]{zrzuty/testy-backend.png}
 \caption{Testy backendu (funkcjonalne API i jednostkowe)}
 \label{fig:testy-backend}
+\par
 \zrodlo{opracowanie własne (zrzut terminala)}
 \end{figure}
 
@@ -287,6 +292,7 @@ przypięta.
 \includegraphics[width=\textwidth]{zrzuty/testy-frontend.png}
 \caption{Testy jednostkowe pakietu \texttt{shared} i frontendu}
 \label{fig:testy-jednostkowe}
+\par
 \zrodlo{opracowanie własne (zrzut terminala)}
 \end{figure}
 
@@ -295,6 +301,7 @@ przypięta.
 \includegraphics[width=\textwidth]{zrzuty/testy-e2e.png}
 \caption{Testy E2E w przeglądarce (Playwright, emulacja telefonu Pixel~7)}
 \label{fig:testy-e2e}
+\par
 \zrodlo{opracowanie własne (zrzut terminala)}
 \end{figure}
 
@@ -322,6 +329,7 @@ kończą się powodzeniem (rysunek~\ref{fig:ci}).
 \includegraphics[width=\textwidth]{zrzuty/testy-ci.png}
 \caption{Przebieg potoku CI w serwisie GitHub (\texttt{gh run view})}
 \label{fig:ci}
+\par
 \zrodlo{opracowanie własne (zrzut terminala)}
 \end{figure}
 
