@@ -58,7 +58,9 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: 'npx tsx src/server.ts',
+          // Builds shared, generates the Prisma client and migrates the test DB first:
+          // web servers start before globalSetup (see prepare-backend.mjs).
+          command: 'node ../e2e/prepare-backend.mjs && npx tsx src/server.ts',
           cwd: '../backend',
           env: e2eBackendEnv,
           url: `http://localhost:${E2E_BACKEND_PORT}/health`,
